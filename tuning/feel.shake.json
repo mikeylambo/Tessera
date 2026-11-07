@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "group": "feel.shake",
+  "values": {
+    "maxTranslate": 0.4,
+    "maxRotateDeg": 0.6,
+    "frequency": 22,
+    "decay": 5,
+    "exponent": 2
+  }
+}

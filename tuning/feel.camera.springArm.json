@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "group": "feel.camera.springArm",
+  "values": {
+    "distance": 22.804,
+    "height": 0,
+    "shoulder": 0,
+    "lag": 8.33,
+    "fov": 50
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "group": "look.post.pulses",
+  "values": {
+    "chromaticHit": 1.2,
+    "bloomFlare": 0.9,
+    "vignetteSqueeze": 0.3,
+    "decay": 9,
+    "flashDecay": 10,
+    "flashColor": "ember.hot"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "group": "vfx.fx.charge.up",
+  "values": {
+    "intensity": 1.1,
+    "chargeTime": 0.1,
+    "radius": 0.9
+  }
+}

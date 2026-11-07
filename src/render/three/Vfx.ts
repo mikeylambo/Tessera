@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { LookKit, VfxHandle } from "@slu/web-shell/look/three";
 import type { CubeType } from "../../sim/types";
 import { PALETTE } from "../../data/palette";
 import { cosmetic } from "../cosmetic";
@@ -18,15 +19,6 @@ interface Shard {
   implode: number;
 }
 
-interface Ring {
-  mesh: THREE.Mesh;
-  life: number;
-  max: number;
-  from: number;
-  to: number;
-  opacity: number;
-}
-
 interface Stream {
   pts: THREE.Points;
   from: THREE.Vector3;
@@ -44,31 +36,36 @@ const SHARD_COLOR: Readonly<Record<CubeType, number>> = {
   phase: 0xc9d4ff
 };
 
-/** Effect families (GDD §25). Gameplay information always outranks spectacle. */
+const TOKEN: Readonly<Record<CubeType, string>> = { stone: "stone", advantage: "advantage", forbidden: "soul", glass: "energy", iron: "edge", phase: "highlight" };
+
+/**
+ * Effect families (GDD §25). Shared effects (shockwaves, sparks, smoke, charge) come from the shell Look Kit VFX
+ * runtime; only Tessera-specific geometry lives here: the cube shard collapse-then-burst and the Beacon light stream.
+ * All `update` time is presentation time from the Feel Kit, so hitstop freezes these without touching the sim.
+ */
 export class VfxView {
   readonly group = new THREE.Group();
   private shards: Shard[] = [];
   private mesh: THREE.InstancedMesh;
-  private rings: Ring[] = [];
   private streams: Stream[] = [];
   private dummy = new THREE.Object3D();
-  private ringGeo = new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2);
-  private squareGeo = new THREE.RingGeometry(0.92, 1, 4, 1, Math.PI / 4).rotateX(-Math.PI / 2);
-  /** Hitstop: presentation-only freeze of shards/rings (frames remaining). */
-  hitstop = 0;
+  private charges = new Map<string, VfxHandle>();
   reduceFlashes = false;
 
-  constructor() {
+  constructor(private readonly look: LookKit) {
     const geo = new THREE.TetrahedronGeometry(0.22, 0);
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.1, emissive: 0xffffff, emissiveIntensity: 0.15 });
     this.mesh = new THREE.InstancedMesh(geo, mat, SHARD_MAX);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.count = 0;
-    this.mesh.castShadow = false;
     this.group.add(this.mesh);
     for (let i = 0; i < SHARD_MAX; i++) {
       this.shards.push({ alive: false, p: new THREE.Vector3(), v: new THREE.Vector3(), r: new THREE.Euler(), w: new THREE.Vector3(), s: 1, life: 0, max: 1, color: new THREE.Color(), implode: 0 });
     }
+  }
+
+  private at(x: number, z: number, y: number): { x: number; y: number; z: number } {
+    return { x: wx(x), y, z: wz(z) };
   }
 
   private spawnShard(at: THREE.Vector3, color: number, speed: number, implode: number, up = 1): void {
@@ -88,44 +85,52 @@ export class VfxView {
     s.implode = implode;
   }
 
-  /** Shards collapse inward then burst outward (24 per cube). */
+  /** Signature kill: 24 shards collapse inward then burst outward, plus a small amber seam ring. */
   kill(x: number, z: number, y: number, type: CubeType, heavy: boolean): void {
     const at = new THREE.Vector3(wx(x), y + HALF, wz(z));
-    const n = 24;
-    for (let i = 0; i < n; i++) this.spawnShard(at, SHARD_COLOR[type], heavy ? 9 : 6, 0.1, 1);
-    this.ring(x, z, y + 0.05, PALETTE.seam, 0.4, 1.6, 0.35, 0.9, true);
+    for (let i = 0; i < 24; i++) this.spawnShard(at, SHARD_COLOR[type], heavy ? 9 : 6, 0.1, 1);
+    this.look.play("fx.impact.burst", { position: this.at(x, z, y + HALF), scale: heavy ? 0.7 : 0.4, tint: TOKEN[type] });
   }
 
   ironSpark(x: number, z: number): void {
-    const at = new THREE.Vector3(wx(x), HALF * 1.6, wz(z));
-    for (let i = 0; i < 10; i++) this.spawnShard(at, 0xffd9a0, 7, 0, 0.6);
+    this.look.play("fx.impact.burst", { position: this.at(x, z, HALF * 1.6), scale: 0.35, tint: "ember.hot" });
   }
 
   implode(x: number, z: number): void {
     const at = new THREE.Vector3(wx(x), HALF, wz(z));
     for (let i = 0; i < 30; i++) this.spawnShard(at, PALETTE.forbiddenCore, -6, 0, 0.2);
-    this.ring(x, z, 0.05, PALETTE.forbiddenCore, 2.2, 0.2, 0.5, 1, false);
+    this.look.play("fx.shockwave.ring", { position: this.at(x, z, 0.1), scale: 0.45, tint: "soul" });
   }
 
-  /** Blast shockwave: square wave across the 3×3 + radial light ring. */
+  /** Blast charge glow on the Glyph (4 f), released into the shockwave. */
+  blastCharge(x: number, z: number): void {
+    const key = `${x},${z}`;
+    this.charges.get(key)?.stop();
+    this.charges.set(key, this.look.play("fx.charge.up", { position: this.at(x, z, 0.4), scale: 0.6, tint: "advantage" }));
+  }
+
+  /** Blast shockwave across the 3×3 (or 5×3). Reduce Flashes drops the light ring; tiles still ripple. */
   blast(x: number, z: number, w: number): void {
-    this.ring(x, z, 0.08, PALETTE.seam, 0.3, (w / 2) * TILE + 0.6, 0.5, 1, true);
-    if (!this.reduceFlashes) this.ring(x, z, 0.1, PALETTE.beacon, 0.2, w * TILE * 1.2, 0.6, 0.28, false);
+    const key = `${x},${z}`;
+    this.charges.get(key)?.release();
+    this.charges.delete(key);
+    this.look.play("fx.shockwave.ring", { position: this.at(x, z, 0.1), scale: (w * TILE) / 10, tint: "ember" });
+    if (!this.reduceFlashes) this.look.play("fx.shockwave.ring", { position: this.at(x, z, 0.15), scale: (w * TILE) / 6, tint: "ember.hot" });
   }
 
   chain(x: number, z: number, n: number): void {
     if (this.reduceFlashes) return;
-    this.ring(x, z, 0.06, PALETTE.seam, 0.5, 2 + n * 0.8, 0.5, 0.45, false);
+    this.look.play("fx.shockwave.ring", { position: this.at(x, z, 0.08), scale: 0.3 + n * 0.12, tint: "ember" });
   }
 
   dust(x: number, z: number): void {
-    const at = new THREE.Vector3(wx(x), -0.2, wz(z));
-    for (let i = 0; i < 6; i++) this.spawnShard(at, 0x2a2724, 1.5, 0, -0.3);
+    this.look.play("fx.smoke.puff", { position: this.at(x, z, -0.3), scale: 0.6, tint: "shadow" });
   }
 
+  /** Purify: radial light wave restoring the palette. */
   lightWave(x: number, z: number): void {
     if (this.reduceFlashes) return;
-    this.ring(x, z, 0.12, PALETTE.beacon, 0.5, 30, 1.4, 0.8, false);
+    this.look.play("fx.shockwave.ring", { position: this.at(x, z, 0.12), scale: 4, tint: "ember.hot" });
   }
 
   /** Beacon light streams into the figure's core. */
@@ -138,35 +143,24 @@ export class VfxView {
     this.streams.push({ pts, from: new THREE.Vector3(wx(x), 1.6, wz(z)), life: 0 });
   }
 
-  private ring(x: number, z: number, y: number, color: number, from: number, to: number, life: number, opacity: number, square: boolean): void {
-    const mesh = new THREE.Mesh(square ? this.squareGeo : this.ringGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(2), transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }));
-    mesh.position.set(wx(x), y, wz(z));
-    mesh.scale.setScalar(from);
-    this.group.add(mesh);
-    this.rings.push({ mesh, life: 0, max: life, from, to, opacity });
-  }
-
+  /** `dt` is presentation time (≈0 during hitstop). */
   update(dt: number, core: THREE.Vector3): void {
-    const frozen = this.hitstop > 0;
-    if (frozen) this.hitstop = Math.max(0, this.hitstop - dt * 60);
-    const step = frozen ? 0 : dt;
     let n = 0;
     for (const s of this.shards) {
       if (!s.alive) continue;
-      s.life += step;
+      s.life += dt;
       if (s.life > s.max) {
         s.alive = false;
         continue;
       }
-      // implode for the first fraction, then burst
-      if (s.life < s.implode) s.p.addScaledVector(s.v, -step * 0.6);
+      if (s.life < s.implode) s.p.addScaledVector(s.v, -dt * 0.6);
       else {
-        s.v.y -= 14 * step;
-        s.p.addScaledVector(s.v, step);
-        s.v.multiplyScalar(1 - step * 1.2);
+        s.v.y -= 14 * dt;
+        s.p.addScaledVector(s.v, dt);
+        s.v.multiplyScalar(1 - dt * 1.2);
       }
-      s.r.x += s.w.x * step;
-      s.r.y += s.w.y * step;
+      s.r.x += s.w.x * dt;
+      s.r.y += s.w.y * dt;
       const k = 1 - s.life / s.max;
       this.dummy.position.copy(s.p);
       this.dummy.rotation.copy(s.r);
@@ -180,35 +174,22 @@ export class VfxView {
     this.mesh.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
 
-    for (const r of this.rings) {
-      r.life += step;
-      const u = Math.min(1, r.life / r.max);
-      const e = 1 - Math.pow(1 - u, 3);
-      r.mesh.scale.setScalar(r.from + (r.to - r.from) * e);
-      (r.mesh.material as THREE.MeshBasicMaterial).opacity = r.opacity * (1 - u);
-    }
-    const doneR = this.rings.filter((r) => r.life >= r.max);
-    for (const r of doneR) {
-      this.group.remove(r.mesh);
-      (r.mesh.material as THREE.Material).dispose();
-    }
-    this.rings = this.rings.filter((r) => r.life < r.max);
-
     for (const s of this.streams) {
-      s.life += step;
+      s.life += dt;
       const attr = s.pts.geometry.getAttribute("position") as THREE.BufferAttribute;
       for (let i = 0; i < attr.count; i++) {
-        const u = Math.max(0, Math.min(1, s.life * 1.6 - i / attr.count * 0.6));
+        const u = Math.max(0, Math.min(1, s.life * 1.6 - (i / attr.count) * 0.6));
         const e = u * u;
         attr.setXYZ(i, s.from.x + (core.x - s.from.x) * e, s.from.y + (core.y - s.from.y) * e + Math.sin(u * Math.PI) * 1.2, s.from.z + (core.z - s.from.z) * e);
       }
       attr.needsUpdate = true;
       (s.pts.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - s.life / 1.1);
     }
-    const doneS = this.streams.filter((s) => s.life > 1.1);
-    for (const s of doneS) {
+    const done = this.streams.filter((s) => s.life > 1.1);
+    for (const s of done) {
       this.group.remove(s.pts);
       s.pts.geometry.dispose();
+      (s.pts.material as THREE.Material).dispose();
     }
     this.streams = this.streams.filter((s) => s.life <= 1.1);
   }

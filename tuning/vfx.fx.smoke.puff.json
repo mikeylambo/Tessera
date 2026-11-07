@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "group": "vfx.fx.smoke.puff",
+  "values": {
+    "puffs": 5,
+    "opacity": 0.35,
+    "rise": 0.4
+  }
+}

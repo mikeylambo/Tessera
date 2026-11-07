@@ -175,6 +175,21 @@ try {
     await page.close();
   }
 
+  // ── 3b: shell tuning panel (dev only) ─────────────────────────────────
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const errors = watch(page);
+    await page.goto(`${BASE}?quick&sector=1&seed=3&tune`);
+    const panel = await waitFor(page, () => !!document.querySelector(".slu-tune"), 10000);
+    check(panel, "?tune mounts the shell tuning panel");
+    const groups = await page.evaluate(() => document.querySelectorAll(".slu-tune details").length);
+    check(groups >= 8, `tuning panel lists feel/look/vfx groups (${groups})`);
+    await sleep(800);
+    await page.screenshot({ path: `${OUT}/10-tuning-panel.png` });
+    check(errors.length === 0, `zero console errors with tuning panel (${errors.slice(0, 3).join(" | ")})`);
+    await page.close();
+  }
+
   // ── 4: mobile emulation with touch ──────────────────────────────────────
   for (const name of ["iPhone 13", "Pixel 7"]) {
     const ctx = await browser.newContext({ ...devices[name] });

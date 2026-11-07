@@ -19,12 +19,13 @@ export type Phase = "boot" | "title" | "menu" | "playing" | "paused" | "runes" |
 
 const LINES = { tessera: "Tessera.", beautiful: "Beautiful.", holdOn: "Hold on.", purified: "Purified.", again: "Again." } as const;
 
+/** Mobile vibration only; gamepad rumble comes from the Feel Kit impact bundles (weak/strong 0 here). */
 const HAPTICS = {
-  kill: { mobile: 60, duration: 60, weak: 0.2, strong: 0 },
-  chain: { mobile: 120, duration: 120, weak: 0, strong: 0.5 },
-  blast: { mobile: [250], duration: 250, weak: 0.8, strong: 0.8 },
-  crush: { mobile: 180, duration: 180, weak: 0, strong: 0.7 },
-  crumble: { mobile: 400, duration: 400, weak: 0.3, strong: 0 }
+  kill: { mobile: 60, duration: 60, weak: 0, strong: 0 },
+  chain: { mobile: 120, duration: 120, weak: 0, strong: 0 },
+  blast: { mobile: [250], duration: 250, weak: 0, strong: 0 },
+  crush: { mobile: 180, duration: 180, weak: 0, strong: 0 },
+  crumble: { mobile: 400, duration: 400, weak: 0, strong: 0 }
 };
 
 export interface UrlFlags {
@@ -149,7 +150,7 @@ export class Game {
 
   private applySettings(s: TesseraSettings): void {
     this.audio.setVolumes({ master: s.masterVolume, music: s.musicVolume, sfx: s.sfxVolume, voice: s.voiceVolume, ui: s.uiVolume, muted: s.muted });
-    this.view.configure({ reducedMotion: s.reducedMotion, reduceFlashes: s.reduceFlashes, shake: s.screenShake, ghosts: s.hintSigils && !this.profile.data.onboarding.retired });
+    this.view.configure({ reducedMotion: s.reducedMotion, reduceFlashes: s.reduceFlashes, shake: s.screenShake, ghosts: s.hintSigils && !this.profile.data.onboarding.retired, vibration: s.vibration });
     this.vibration = s.vibration;
     if (s.vibration) this.haptics.setEnabled(true);
     this.ui.setScale(s.uiScale);
@@ -160,7 +161,7 @@ export class Game {
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.view.scene.resize(w, h);
-    this.view.rig.portrait = h > w;
+    this.view.feel.portrait = h > w;
   }
 
   // ───────────────────────────────── loop ─────────────────────────────────
@@ -372,7 +373,7 @@ export class Game {
     const player = new InputPlayer(this.recorder.entries.filter((e) => e[0] >= rw.frame));
     rw.events.drain();
     this.view.attach(rw);
-    this.view.rig.extraUp = 0;
+    this.view.feel.extraUp = 0;
     this.replay = { world: rw, player, end: end + 12, speed: 0.4, acc: 0, cause: this.describeCause(w) };
     this.phase = "replay";
     this.replayLast = 0;
@@ -435,7 +436,7 @@ export class Game {
       this.view.handle(ev);
     }
     this.alpha = r.acc;
-    this.view.rig.extraUp = 8;
+    this.view.feel.extraUp = 8;
   }
 
   skipReplay(): void {
@@ -443,7 +444,7 @@ export class Game {
     this.replaySkip?.();
     this.replaySkip = null;
     this.replay = null;
-    this.view.rig.extraUp = 0;
+    this.view.feel.extraUp = 0;
     if (this.world) this.view.attach(this.world);
     this.showResults();
   }

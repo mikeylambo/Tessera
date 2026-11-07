@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "group": "look.post",
+  "values": {
+    "bloomThreshold": 0.85,
+    "bloomStrength": 0.85,
+    "bloomRadius": 0.55,
+    "lift": 0,
+    "gamma": 1,
+    "gain": 1,
+    "saturation": 1,
+    "vignetteAmount": 0.42,
+    "vignetteSoftness": 0.6,
+    "vignetteColor": "void.deep",
+    "chromatic": false,
+    "grain": false,
+    "edges": false,
+    "distortion": true,
+    "aa": "fxaa"
+  }
+}
