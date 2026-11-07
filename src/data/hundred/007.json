@@ -1,0 +1,7 @@
+{ "id": 7, "name": "Reach", "act": 1,
+  "ground": ["XXX....","XXX....","XXX....","XXX...."], "player": [1, 2], "crumble": 0,
+  "waves": [
+    { "at": 1, "z": 9, "rows": ["...S...", "..S.S..", "...S..."] },
+    { "at": 6, "z": 11, "rows": ["..S....", "...S...", "...S...", "..S....", "...S..."] }
+  ],
+  "objective": { "type": "exit", "z": 7 }, "par": 5 }

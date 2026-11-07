@@ -1,0 +1,9 @@
+{ "id": 8, "name": "Pressure", "act": 1,
+  "ground": ["XXXXXXX","XXXXXXX","XXXXXXX","XXXXXXX"], "player": [3, 2], "crumble": 6,
+  "waves": [
+    { "at": 1, "z": 9, "rows": ["..S.S..", "...S..."] },
+    { "at": 6, "z": 10, "rows": [".S...S.", "...S..."] },
+    { "at": 11, "z": 12, "rows": ["..S.S..", ".S...S."] },
+    { "at": 16, "z": 14, "rows": ["...S...", "..S.S.."] }
+  ],
+  "objective": { "type": "survive", "ticks": 28 }, "par": 14 }

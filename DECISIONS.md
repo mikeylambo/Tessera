@@ -1,0 +1,43 @@
+# TESSERA — Decisions Log
+
+| # | Date | Decision | Why | By |
+|---|---|---|---|---|
+| 1 | 2026-11-06 | Fusion: Intelligent Qube mark/detonate + kills-become-terrain (Gemini-pivot idea) as core | The only concept of the three that isn't a remake | Michael |
+| 2 | 2026-11-06 | Endless Sector runs with Chamber puzzles every 4th Sector | Survivor-style replay with IQ-style puzzle palate cleansers | Michael |
+| 3 | 2026-11-06 | Abstract figure (obelisk with amber core) | Keeps the void/geometry dread; no character pipeline cost | Michael |
+| 4 | 2026-11-06 | Title: TESSERA (renamed from Foothold) | A tessera is a single tile; the game is laying them | Michael |
+| 5 | 2026-11-06 | Marks can be projected over the void within Reach (3) | Enables islands and forward building; range advantage via Iron raised tiles | Claude (rec.), Michael approved |
+| 6 | 2026-11-06 | Ground is life; no integrity meter. Crush shoves back 1 tile + stun; death only by falling | Floor stays the single readable health bar | Michael (+ Claude refinement) |
+| 7 | 2026-11-06 | Kimi's Corruption meter folded into Last Stand (triggers at ≤ 14 connected tiles) | Avoids a second meter while keeping the comeback inversion | Claude |
+| 8 | 2026-11-06 | Web: TypeScript + Three.js on @slu/web-shell, own repo | SLU foundation rule; fast iteration | Claude |
+| 9 | 2026-11-06 | Prior prototypes are idea sources only; array mutation during iteration banned | Gemini build froze | Claude |
+| 10 | 2026-11-06 | Procedural visuals are final art; synth audio ships with manifest overrides for Michael's stems | Near-zero asset cost; music identity stays his | Claude |
+| 11 | 2026-11-06 | Fixed tick kept; game never judges rhythm; music follows the tick; difficulty shortens tick length | Predictable cadence serves planning; music is presentation | Claude (rec.) |
+| 12 | 2026-11-06 | Pillars: Invites the player to get smarter; Cold world, warm player; visual pillars Minimalism / Contrast / Radiance | From Michael's original design notes | Michael |
+| 13 | 2026-11-06 | Web build targets PC + mobile; touch controls first-class | Michael's notes | Michael |
+| 14 | 2026-11-06 | "The game cares": loss replay, hint sigils, kind announcer | Cold but caring presence | Michael (+ Claude features) |
+| 15 | 2026-11-06 | Skyfall cubes (shadow telegraph, drop, then roll) | "Puzzles drop out of the sky, dodge the shadows" | Michael |
+| 16 | 2026-11-06 | The Hundred: 100-stage slow-unveiling campaign; Act VI "The Turn" rotates the construct | IQ's 100-level flex; rotation fits as the finale, not Endless | Michael (+ Claude placement) |
+| 17 | 2026-11-06 | Beacons (forward rewards over the void) + ground economy (6-row hinterland cap, sprawl weight) | Advancing must pay, hoarding must cost | Claude (rec.), Michael approved |
+| 18 | 2026-11-06 | Void lattice, cell shadows, Reach glow, next-cell chevrons LOCKED | Void marking must be readable, esp. on mobile | Claude (rec.), Michael approved |
+| 19 | 2026-11-06 | Endless formations pass a fairness solver before spawning | No unwinnable hands | Claude (rec.), Michael approved |
+| 20 | 2026-11-06 | Tick floor 54 frames; late difficulty via complexity only | Thinking time is sacred (pillar) | Claude (rec.), Michael approved |
+| 21 | 2026-11-06 | First launch → Hundred stage 1; Endless + Daily unlock after Act I | Slow unveiling starts the experience | Claude (rec.), Michael approved |
+| 22 | 2026-11-06 | Daily Tessera + Supabase leaderboards with replay validation | Retention; determinism makes validation cheap | Claude (rec.), Michael approved |
+| 23 | 2026-11-06 | Mobile suspend/resume via seed + input log | Runs never lost to app switches | Claude (rec.), Michael approved |
+| 24 | 2026-11-06 | Kill notes: instant transient + 16th-quantized tone, max 4 voices | Feel stays immediate, music stays clean | Claude (rec.), Michael approved |
+| 25 | 2026-11-06 | v1 = Acts I–V + Endless + Daily; Act VI as Finale update; Turn prototyped in feel gate | Retire biggest risk early, ship sooner, second launch beat | Claude (rec.), Michael approved |
+| 26 | 2026-11-06 | Free web tier + YouTube Playables + premium Steam/mobile from one codebase | Reach + revenue without F2P | Claude (rec.), Michael approved |
+| 27 | 2026-11-06 | Tesseract cube renamed Phase | Avoid collision with title | Claude (rec.), Michael approved |
+| 28 | 2026-11-06 | Universe: Standalone | Abstract purity is the point | Michael |
+| 29 | 2026-11-06 | Docs rebuilt to Michael's 50-section master handoff template (v1.3); build brief merged into §40/§41/§45; foundation is Shell-generated via create-slu-game.mjs | Consistent pipeline; adds The Bet, Design Laws, glossary, CLAUDE.md packaging | Claude (rec.), Michael approved |
+| 30 | 2026-11-07 | Shell consumed as a vendored build (`vendor/slu-web-shell`, built from `Web-Game-Shell-v1.02@6f08d17` src; committed `dist/` was stale) via `file:` dependency | @slu/web-shell is not on a registry; vendoring keeps the repo self-contained for Vercel | Claude |
+| 31 | 2026-11-07 | §46 "exact shell Frame names": shell Frames are genres, not screens. Generated with `--frames puzzle`; title/menu/pause/settings/results are the shell's UI-shell screens, re-skinned and routed by Tessera's own flow (first launch → Hundred 1, "Press any key", one decision per screen) | The shell's GameFlowController hard-codes Title→Menu→Mode→Setup, which contradicts §20 first-launch routing | Claude |
+| 32 | 2026-11-07 | Hitstop is presentation-only (render freezes impact VFX/camera); the sim clock never stalls | Keeps the tick — and the music that follows it — perfectly even (Design Law 4); sim stays independent of render | Claude |
+| 33 | 2026-11-07 | Kills on existing ground: Advantage still leaves its Glyph; Iron raises the tile; Glass leaves ground unchanged | Spec silent; a late kill should never lose a reward or downgrade owned ground | Claude |
+| 34 | 2026-11-07 | Glyphs are Glyph tiles: held count = live Glyph tiles (oldest fires first). Beacon/Resonance Glyphs convert the tile under the player. A Glyph tile that crumbles is lost | Blast is "centred on the Glyph" (§7), so every Glyph needs a cell; keeps one readable rule | Claude |
+| 35 | 2026-11-07 | Marking with a full hand replaces the oldest mark | Spec only says "max 2"; ignoring the press would lock touch players out | Claude |
+| 36 | 2026-11-07 | Rear row = lowest z holding any tile; a cube "escapes" when it lands behind it | Single readable definition of "off the rear edge" | Claude |
+| 37 | 2026-11-07 | Fairness solver v1 is a necessary-condition checker (Reach coverage, sanctuary lane, input budget, Phase pairing) against connected ground; full plan search is deferred to the Phase 4 stage solver | Meets the 4 ms budget trivially; a plan-search solver is the same harness the stage editor needs | Claude |
+| 38 | 2026-11-07 | Hundred "clear" objective fails on any Standard escape; early stages honour `noFail` (first 600 f: crush can't shove into the void, no crumble) | §22 "first stages have no failure state for their first 10 s" | Claude |
+| 39 | 2026-11-07 | Act I stages verified solvable by the expert bot (gate test); par values are authored estimates until the plan-search solver lands | Design Law 5 for the Hundred; honest about par provenance | Claude |

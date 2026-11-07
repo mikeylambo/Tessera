@@ -1,0 +1,8 @@
+{ "id": 2, "name": "Over the Void", "act": 1,
+  "ground": ["XXXXXXX","XXXXXXX","XXXXXXX","XXXXXXX"], "player": [3, 2], "crumble": 0,
+  "waves": [
+    { "at": 1, "z": 8, "rows": ["....S..", "..S...."] },
+    { "at": 7, "z": 9, "rows": ["....S.."] }
+  ],
+  "objective": { "type": "exit", "z": 5 }, "par": 3, "noFail": 600,
+  "ghosts": [{ "x": 4, "z": 5, "from": 0 }, { "x": 2, "z": 4, "from": 4 }, { "x": 4, "z": 4, "from": 10 }] }

@@ -1,0 +1,5 @@
+{ "id": 4, "name": "Two Marks", "act": 1,
+  "ground": ["XXXXXXX","XXXXXXX","XXXXXXX","XXXXXXX"], "player": [3, 1], "crumble": 0,
+  "waves": [{ "at": 1, "z": 8, "rows": ["..S.S.."] }, { "at": 5, "z": 9, "rows": [".S...S."] }],
+  "objective": { "type": "clear" }, "par": 4,
+  "ghosts": [{ "x": 2, "z": 5, "from": 0 }, { "x": 4, "z": 5, "from": 0 }] }

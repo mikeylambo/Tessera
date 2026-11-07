@@ -1,0 +1,8 @@
+{ "id": 6, "name": "Islands", "act": 1,
+  "ground": ["XXXXXXX","XXXXXXX","XXXXXXX","XXXXXXX"], "player": [3, 2], "crumble": 0,
+  "waves": [
+    { "at": 1, "z": 9, "rows": ["S..S..S", ".S...S."] },
+    { "at": 5, "z": 11, "rows": ["...S...", "..S.S..", "...S..."] }
+  ],
+  "objective": { "type": "exit", "z": 6 }, "par": 5,
+  "ghosts": [{ "x": 3, "z": 5, "from": 0 }] }

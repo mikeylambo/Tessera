@@ -1,0 +1,18 @@
+{
+  "gameId": "tessera",
+  "version": "0.1.0",
+  "channel": "development",
+  "demo": false,
+  "renderer": "three",
+  "frames": [
+    "puzzle"
+  ],
+  "supportedInputs": [
+    "keyboard-mouse",
+    "gamepad"
+  ],
+  "supportedLocales": [
+    "en"
+  ],
+  "requiredFeatures": []
+}
