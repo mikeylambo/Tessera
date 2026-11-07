@@ -187,6 +187,12 @@ export class WorldView {
     this.scene.render();
   }
 
+  /** Cell → CSS pixel position (dev/tests). */
+  cellToScreen(x: number, z: number, w: number, h: number): { x: number; y: number } {
+    const v = new THREE.Vector3(wx(x), 0, wz(z)).project(this.scene.camera);
+    return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
+  }
+
   /** Screen → cell (for mouse/touch aim). */
   pick(ndcX: number, ndcY: number): Cell | null {
     const ray = new THREE.Raycaster();
@@ -197,8 +203,6 @@ export class WorldView {
     const x = Math.round(hit.x / 2 + 3);
     const z = Math.round(-hit.z / 2);
     if (x < 0 || x > 6) return null;
-    void wx;
-    void wz;
     return { x, z };
   }
 }

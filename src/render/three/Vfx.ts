@@ -110,12 +110,12 @@ export class VfxView {
   /** Blast shockwave: square wave across the 3×3 + radial light ring. */
   blast(x: number, z: number, w: number): void {
     this.ring(x, z, 0.08, PALETTE.seam, 0.3, (w / 2) * TILE + 0.6, 0.5, 1, true);
-    if (!this.reduceFlashes) this.ring(x, z, 0.1, 0xffffff, 0.2, w * TILE * 1.4, 0.7, 0.6, false);
+    if (!this.reduceFlashes) this.ring(x, z, 0.1, PALETTE.beacon, 0.2, w * TILE * 1.2, 0.6, 0.28, false);
   }
 
   chain(x: number, z: number, n: number): void {
     if (this.reduceFlashes) return;
-    this.ring(x, z, 0.06, PALETTE.seam, 0.5, 3 + n * 1.2, 0.6, 0.7, false);
+    this.ring(x, z, 0.06, PALETTE.seam, 0.5, 2 + n * 0.8, 0.5, 0.45, false);
   }
 
   dust(x: number, z: number): void {

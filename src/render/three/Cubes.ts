@@ -45,7 +45,7 @@ export class CubesView {
       glass: new THREE.MeshPhysicalMaterial({ color: PALETTE.glass, roughness: 0.06, transparent: true, opacity: 0.42, clearcoat: 1, emissive: PALETTE.glass, emissiveIntensity: 0.08, depthWrite: false }),
       iron: new THREE.MeshStandardMaterial({ color: 0x6b717b, map: ironTexture(), roughness: 0.38, metalness: 0.85 }),
       phase: new THREE.MeshPhysicalMaterial({ color: 0xc9d4ff, roughness: 0.2, transparent: true, opacity: 0.32, emissive: 0x9fb2ff, emissiveIntensity: 0.25, depthWrite: false }),
-      forbiddenFrame: new THREE.MeshStandardMaterial({ color: PALETTE.forbiddenBody, roughness: 0.25, metalness: 0.6 }),
+      forbiddenFrame: new THREE.MeshStandardMaterial({ color: 0x2a2633, roughness: 0.3, metalness: 0.5, emissive: 0x6e6680, emissiveIntensity: 0.28 }),
       forbiddenCore: new THREE.MeshBasicMaterial({ color: PALETTE.forbiddenCore, toneMapped: false }),
       pip: new THREE.MeshStandardMaterial({ color: 0xc9ccd2, metalness: 1, roughness: 0.25 })
     };

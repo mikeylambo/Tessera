@@ -235,7 +235,7 @@ export class OverlayView {
         if (i === 1) c.rotation.y += dt * 1.5;
         if (i === 1) c.position.y = 1.6 + Math.sin(this.t * 2) * 0.15;
         const m = (c as THREE.Mesh).material as THREE.MeshBasicMaterial;
-        if (m && "opacity" in m) m.opacity = (i === 0 ? 0.32 : i === 2 ? 0.8 : 1) * dim;
+        if (m && "opacity" in m) m.opacity = (i === 0 ? 0.16 : i === 2 ? 0.7 : 1) * dim;
       });
     }
     for (const [id, g] of [...this.beacons]) {
@@ -274,8 +274,8 @@ export class OverlayView {
   private makeBeacon(): THREE.Group {
     const g = new THREE.Group();
     const shaft = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.35, 0.6, 9, 12, 1, true).translate(0, 4.5, 0),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.beacon).multiplyScalar(1.4), transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false })
+      new THREE.CylinderGeometry(0.06, 0.32, 7, 10, 1, true).translate(0, 3.5, 0),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.beacon).multiplyScalar(0.7), transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false })
     );
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.beacon).multiplyScalar(3), toneMapped: false, transparent: true }));
     gem.position.y = 1.6;

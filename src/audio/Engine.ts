@@ -76,7 +76,7 @@ export class AudioEngine {
   }
 
   resume(): void {
-    void this.ctx?.resume();
+    if (this.ctx && this.ctx.state === "suspended" && navigator.userActivation?.hasBeenActive !== false) void this.ctx.resume();
   }
 
   /** Music ducks 4 dB for 500 ms on Climax events; announcer ducks −8 dB. */

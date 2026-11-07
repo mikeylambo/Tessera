@@ -32,7 +32,7 @@ export class Sfx {
 
   handle(events: readonly SimEvent[], c: SfxClock): void {
     const e = this.e;
-    if (!e.ctx) return;
+    if (!e.ctx || e.ctx.state !== "running") return;
     const now = e.now + 0.005;
     for (const ev of events) {
       switch (ev.t) {
