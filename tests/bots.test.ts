@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { runBot } from "./helpers";
-import { STAGES } from "../src/data/hundred";
 
 describe("Phase 2 exit: bots", () => {
   it("Phase 2 exit: competent bot survives 3 Sectors on every seed (TUNING_LOG #3)", () => {
