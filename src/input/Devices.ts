@@ -119,7 +119,7 @@ export class Devices {
     this.touchCount = Math.max(this.touchCount, e.touches.length);
     const t = e.changedTouches[0];
     if (!t || e.touches.length > 1) return;
-    this.touchStart = { x: t.clientX, y: t.clientY, t: performance.now(), id: t.identifier };
+    this.touchStart = { x: t.clientX, y: t.clientY, t: e.timeStamp, id: t.identifier };
   };
 
   private onTouchMove = (e: TouchEvent): void => {
@@ -150,7 +150,8 @@ export class Devices {
     }
     if (s && t && !this.swipeHeld && this.enabled) {
       const dist = Math.hypot(t.clientX - s.x, t.clientY - s.y);
-      if (dist < 20 && performance.now() - s.t < 400) {
+      if (dist < 20) {
+        // a touch that did not travel is a tap, however long it was held (nothing uses still long-press)
         const [x, y] = this.ndc(t.clientX, t.clientY);
         const c = this.ctx.pick(x, y);
         if (c) {

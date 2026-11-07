@@ -50,7 +50,14 @@ async function waitFor(page, fn, timeout = 15000, arg) {
   return page.waitForFunction(fn, arg, { timeout, polling: 100 }).then(() => true, () => false);
 }
 
-const server = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort"], { stdio: "pipe" });
+const server = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort"], { stdio: "ignore", detached: true });
+const stopServer = () => {
+  try {
+    process.kill(-server.pid, "SIGTERM");
+  } catch {
+    /* already gone */
+  }
+};
 let up = false;
 for (let i = 0; i < 60 && !up; i++) {
   try {
@@ -62,7 +69,7 @@ for (let i = 0; i < 60 && !up; i++) {
 }
 if (!up) {
   console.error("[e2e] preview server did not start (did you run `npm run build`?)");
-  server.kill();
+  stopServer();
   process.exit(1);
 }
 
@@ -194,15 +201,15 @@ try {
     const pt = await page.evaluate(() => { const s = window.__GAME.state(); return window.__GAME.cellToScreen(s.player.x, s.player.z + 2); });
     await touch("touchStart", pt.x, pt.y);
     await touch("touchEnd", pt.x, pt.y);
-    await sleep(300);
-    const marks = await page.evaluate(() => window.__GAME.state().marks.length);
-    check(marks === 1, `${name}: tap marks a cell (${marks})`);
+    await waitFor(page, () => window.__GAME.state().marks.length === 1, 4000);
+    const tapInfo = await page.evaluate((pt) => { const g = window.__GAME; const s = g.state(); return { marks: s.marks.length, player: s.player, aim: g.game.devices.aim, pt }; }, pt);
+    check(tapInfo.marks === 1, `${name}: tap marks a cell ${JSON.stringify(tapInfo)}`);
     const btn = page.locator(".t-btn:not(.small)");
     check(await btn.isVisible(), `${name}: Detonate thumb button visible`);
     const bb = await btn.boundingBox();
     check(bb && bb.width >= 48 && bb.height >= 48, `${name}: touch target ≥ 48 px`);
     await btn.tap();
-    await sleep(300);
+    await waitFor(page, () => window.__GAME.state().marks.length === 0, 4000);
     const marksAfter = await page.evaluate(() => window.__GAME.state().marks.length);
     check(marksAfter === 0, `${name}: Detonate button fires marks`);
     await page.screenshot({ path: `${OUT}/09-mobile-${name.replace(/\s/g, "")}.png` });
@@ -214,7 +221,7 @@ try {
   console.error(e);
 } finally {
   await browser.close();
-  server.kill();
+  stopServer();
 }
 
 if (failures.length) {
@@ -222,3 +229,4 @@ if (failures.length) {
   process.exit(1);
 }
 log("all browser gates passed; screenshots in", OUT);
+process.exit(0);

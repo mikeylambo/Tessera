@@ -359,7 +359,8 @@ export class Game {
   /** 3 s slow-motion, high-angle replay of the moments before the fall, cause highlighted, skippable (GDD §22). */
   private startLossReplay(w: World): void {
     const end = w.outcome?.frame ?? w.frame;
-    const start = Math.max(0, end - 150);
+    // 3 s of wall time at 0.4× covers the last 72 frames: 60 before the fall, 12 after (GDD §22)
+    const start = Math.max(0, end - 60);
     const cfg = this.config!;
     let rw: World;
     try {
@@ -372,8 +373,9 @@ export class Game {
     rw.events.drain();
     this.view.attach(rw);
     this.view.rig.extraUp = 0;
-    this.replay = { world: rw, player, end: end + 30, speed: 0.4, acc: 0, cause: this.describeCause(w) };
+    this.replay = { world: rw, player, end: end + 12, speed: 0.4, acc: 0, cause: this.describeCause(w) };
     this.phase = "replay";
+    this.replayLast = 0;
     this.ui.showHud(false, false);
     this.ui.show({
       id: "replay",
@@ -393,6 +395,7 @@ export class Game {
   }
 
   private replaySkip: (() => void) | null = null;
+  private replayLast = 0;
 
   private describeCause(w: World): string {
     const o = w.outcome;
@@ -413,10 +416,14 @@ export class Game {
     }
   }
 
-  private stepReplay(dt: number): void {
+  private stepReplay(_dt: number): void {
     const r = this.replay;
     if (!r) return;
-    r.acc += dt * 60 * r.speed;
+    // wall-clock driven so the replay is always 3 s, whatever the render framerate
+    const now = performance.now();
+    const real = this.replayLast ? (now - this.replayLast) / 1000 : 0;
+    this.replayLast = now;
+    r.acc += real * 60 * r.speed;
     while (r.acc >= 1) {
       r.acc -= 1;
       if (r.world.frame >= r.end || r.world.ended) {
@@ -752,7 +759,7 @@ export class Game {
     this.ui.show({
       id: "results",
       title: w.config.mode === "daily" ? `DAILY · ${String(w.config.seed).replace("DAILY-", "")}` : "THE FALL",
-      body: `<div class="t-lead">${best}</div>${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ["Best chain", w.score.bestChain], ["Beacons", w.beaconsCollected], ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${w.config.mode === "daily" && this.ranked ? `<div class="t-sub">Ranked attempt recorded · leaderboard offline</div>` : ""}`,
+      body: `<div class="t-lead">${best}</div>${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 1 ? [["Best chain", w.score.bestChain] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${w.config.mode === "daily" && this.ranked ? `<div class="t-sub">Ranked attempt recorded · leaderboard offline</div>` : ""}`,
       items: [{ id: "retry", label: "Retry" }, { id: "menu", label: "Menu" }],
       onPick: (id) => (id === "retry" ? this.retry() : this.showMenu()),
       onBack: () => this.showMenu()

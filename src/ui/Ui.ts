@@ -74,6 +74,7 @@ const CSS = /* css */ `
 .t-replay .why { color:rgba(233,227,216,0.8); letter-spacing:0.22em; text-transform:uppercase; font-size:12px; }
 .t-overlay { position:absolute; right:12px; top:12px; color:#9fd; font-size:11px; white-space:pre; text-align:right; opacity:0.8; }
 .hc .t-item { border-color:rgba(233,227,216,0.6); }
+@media (max-width: 640px) { .t-score { top:auto; bottom:max(14px, env(safe-area-inset-bottom)); left:max(16px, env(safe-area-inset-left)); transform:none; font-size:calc(16px * var(--ui-scale)); } .t-runes { bottom:max(44px, calc(env(safe-area-inset-bottom) + 30px)); } }
 `;
 
 export class Ui {
