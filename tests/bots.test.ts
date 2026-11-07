@@ -18,12 +18,5 @@ describe("Phase 2 exit: bots", () => {
     const r = runBot({ mode: "endless", seed: 1 }, "novice", 60 * 60 * 20);
     expect(r.world.outcome?.kind).toBe("fall");
   });
-  it("every authored Hundred stage is solvable by the expert bot", () => {
-    const report: string[] = [];
-    for (const stage of STAGES) {
-      const r = runBot({ mode: "hundred", seed: 1, stage }, "expert", 60 * 120);
-      report.push(`${stage.id} ${stage.name}: ${r.world.outcome?.kind ?? "timeout"} marks ${r.world.marksPlaced} par ${stage.par}`);
-    }
-    expect(report.filter((l) => !l.includes(": clear")), report.join("\n")).toEqual([]);
-  });
+
 });

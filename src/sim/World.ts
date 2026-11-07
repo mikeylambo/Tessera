@@ -13,6 +13,7 @@ import { Beacons } from "./Beacons";
 import { EventQueue, type FallCause, type BeaconReward } from "./Events";
 import { checkFormation } from "./Fairness";
 import { createRng } from "./Rng";
+import { deepClone } from "./clone";
 import { chebyshev, isStandard, type Cell, type CubeType, type FrameInput, type TileType } from "./types";
 
 export type Mode = "endless" | "daily" | "hundred" | "sandbox";
@@ -214,12 +215,22 @@ export class World {
     this.checkObjective();
   }
 
-  private moveCtx = {
-    canEnter: (x: number, z: number): boolean => {
-      if (!this.grid.inBounds(x) || !this.grid.has(x, z)) return false;
-      return !this.cubeAt({ x, z });
-    }
-  };
+  private moveCtx = { canEnter: (x: number, z: number): boolean => this.canEnter(x, z) };
+
+  /** Cell has a tile and no cube in it (movement rule). */
+  canEnter(x: number, z: number): boolean {
+    if (!this.grid.inBounds(x) || !this.grid.has(x, z)) return false;
+    return !this.cubeAt({ x, z });
+  }
+
+  /** Independent copy for search (solver). Stage data is shared (immutable); closures are rebound. */
+  clone(): World {
+    const stage = this.config.stage;
+    const c = deepClone(this);
+    if (stage) (c.config as WorldConfig).stage = stage;
+    c.moveCtx = { canEnter: (x: number, z: number): boolean => c.canEnter(x, z) };
+    return c;
+  }
 
   // ───────────────────────────────── verbs ─────────────────────────────────
 

@@ -22,3 +22,24 @@ describe("determinism", () => {
     expect(r.stateHash()).not.toBe(a.world.stateHash());
   });
 });
+
+describe("World.clone (solver search)", () => {
+  it("a clone stepped with the same inputs stays hash-identical to the original", async () => {
+    const { World } = await import("../src/sim/World");
+    const { Bot } = await import("../src/dev/bot");
+    const a = new World({ mode: "endless", seed: 21 });
+    const bot = new Bot("competent", 3);
+    for (let i = 0; i < 1500; i++) a.step(bot.think(a));
+    const b = a.clone();
+    expect(b.stateHash()).toBe(a.stateHash());
+    const bot2 = new Bot("competent", 3);
+    for (let i = 0; i < 1500; i++) {
+      const inp = bot2.think(a);
+      a.step(inp);
+      b.step(inp);
+    }
+    expect(b.stateHash()).toBe(a.stateHash());
+    b.step({ held: 0, press: 1, mark: null, detonate: true, blast: false, pick: -1 });
+    expect(b.frame).toBe(a.frame + 1); // independent
+  });
+});

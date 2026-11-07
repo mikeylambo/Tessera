@@ -7,4 +7,4 @@
     { "at": 17, "z": 17, "rows": ["...S...", ".S.S.S.", "...S..."] }
   ],
   "beacons": [{ "at": 8, "x": 4, "z": 9 }],
-  "objective": { "type": "exit", "z": 11 }, "par": 14 }
+  "objective": { "type": "exit", "z": 11 }, "par": 16 }

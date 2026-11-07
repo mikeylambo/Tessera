@@ -4,5 +4,5 @@
     { "at": 1, "z": 9, "rows": ["S..S..S", ".S...S."] },
     { "at": 5, "z": 11, "rows": ["...S...", "..S.S..", "...S..."] }
   ],
-  "objective": { "type": "exit", "z": 6 }, "par": 5,
+  "objective": { "type": "exit", "z": 6 }, "par": 7,
   "ghosts": [{ "x": 3, "z": 5, "from": 0 }] }

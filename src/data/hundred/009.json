@@ -5,4 +5,4 @@
     { "at": 6, "z": 11, "rows": ["...S...", "..S.S..", "...S..."] },
     { "at": 12, "z": 14, "rows": ["...S...", "..S.S..", "...S..."] }
   ],
-  "objective": { "type": "exit", "z": 9 }, "par": 9 }
+  "objective": { "type": "exit", "z": 9 }, "par": 13 }

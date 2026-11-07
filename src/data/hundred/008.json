@@ -6,4 +6,4 @@
     { "at": 11, "z": 12, "rows": ["..S.S..", ".S...S."] },
     { "at": 16, "z": 14, "rows": ["...S...", "..S.S.."] }
   ],
-  "objective": { "type": "survive", "ticks": 28 }, "par": 14 }
+  "objective": { "type": "survive", "ticks": 28 }, "par": 13 }
