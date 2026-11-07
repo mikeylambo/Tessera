@@ -30,6 +30,18 @@ export class Bot {
     const p = w.player;
     const standards = w.cubes.alive().filter((c) => isStandard(c.type) && w.logical(c));
 
+    // 0. Restraint first: if a Forbidden is coming down our lane, step aside before doing anything else
+    if (p.state === "idle" && this.level !== "novice") {
+      const threat = w.cubes.alive().some((c) => c.type === "forbidden" && c.landTick < 0 && c.x === p.x && c.z - p.z >= 0 && c.z - p.z <= 3);
+      if (threat) {
+        const side = ([2, 4] as const)
+          .map((d) => ({ d, x: p.x + (d === 2 ? 1 : -1) }))
+          .filter((o) => w.grid.has(o.x, p.z) && !w.cubeAt({ x: o.x, z: p.z }))
+          .sort((a, b) => this.danger(w, a.x, p.z) - this.danger(w, b.x, p.z))[0];
+        if (side) return { ...input, press: side.d };
+      }
+    }
+
     // 1. Detonate when every mark sits on a live Standard
     const marks = w.marks.list();
     if (marks.length && this.cooldown === 0 && w.actionLock === 0) {
@@ -109,6 +121,7 @@ export class Bot {
     return input;
   }
 
+  /** Lane danger: a cube rolls down its whole column, so every cell below an approaching cube is in its path. */
   private danger(w: World, x: number, z: number): number {
     let d = 0;
     for (const c of w.cubes.alive()) {
@@ -118,7 +131,9 @@ export class Bot {
         continue;
       }
       const dz = c.z - z;
-      if (dz >= 0 && dz <= 2) d += c.type === "forbidden" ? 60 - dz * 10 : 25 - dz * 8;
+      if (dz < 0 || dz > 5) continue;
+      // Forbidden must be dodged (whole lane); Standards get killed, so only imminent ones matter
+      d += c.type === "forbidden" ? 200 - dz * 25 : dz <= 2 ? 25 - dz * 8 : 0;
     }
     if (w.grid.rearZ() === z) d += 15;
     return d;

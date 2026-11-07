@@ -8,12 +8,15 @@ export class Crumble {
   /** Fixed interval override (Hundred stages); 0 = derive from sector. */
   fixed = 0;
   warned = false;
+  /** Contact has happened (timer may run). See TUNING.crumble.holdUntilContact. */
+  contacted = true;
 
   reset(fixed = 0, enabled = true): void {
     this.counter = 0;
     this.fixed = fixed;
     this.enabled = enabled;
     this.warned = false;
+    this.contacted = true;
   }
 
   /** Interval in ticks: sector base (+Slow Earth) − sprawl weight, floored. */
@@ -25,6 +28,6 @@ export class Crumble {
   }
 
   serialize(): string {
-    return `${this.counter},${this.enabled ? 1 : 0},${this.fixed},${this.warned ? 1 : 0}`;
+    return `${this.counter},${this.enabled ? 1 : 0},${this.fixed},${this.warned ? 1 : 0},${this.contacted ? 1 : 0}`;
   }
 }

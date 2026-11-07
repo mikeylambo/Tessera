@@ -39,7 +39,12 @@ export const TUNING = {
     floor: 4,
     /** −1 tick every N sectors */
     sectorsPerStep: 3,
-    warnFrames: 30
+    warnFrames: 30,
+    /**
+     * When the Crumble timer starts counting: "none" = from tick 0 (original), "run" = from the run's first contact,
+     * "sector" = from first contact in every Sector. Contact = a live cube within Reach of the connected front row.
+     */
+    holdUntilContact: "sector" as "none" | "run" | "sector"
   },
   economy: {
     hinterlandRows: 6,

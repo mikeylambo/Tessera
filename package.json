@@ -18,7 +18,8 @@
     "certify:web": "npm run verify && slu-certify web",
     "certify:mobile": "npm run verify && slu-certify mobile",
     "certify:controller": "npm run verify && slu-certify controller",
-    "certify:release": "npm run verify && slu-certify release"
+    "certify:release": "npm run verify && slu-certify release",
+    "sweep": "vitest run --config vitest.sweep.config.ts"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.6",

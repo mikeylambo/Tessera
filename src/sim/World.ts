@@ -545,7 +545,8 @@ export class World {
 
     // crumble timer & hinterland
     let crumbled = false;
-    if (this.crumble.enabled && !this.noFail) {
+    if (!this.crumble.contacted) this.crumble.contacted = this.inContact();
+    if (this.crumble.enabled && !this.noFail && this.crumble.contacted) {
       this.crumble.counter++;
       if (this.crumble.counter >= this.crumbleInterval()) {
         this.crumble.counter = 0;
@@ -569,13 +570,22 @@ export class World {
     this.refreshMultiplier();
   }
 
+  /** Contact: a live grounded cube within Reach of the connected front row (Crumble hold, TUNING.crumble.holdUntilContact). */
+  private inContact(): boolean {
+    const conn = this.connected();
+    if (!conn.length) return true;
+    let front = -Infinity;
+    for (const t of conn) front = Math.max(front, t.z);
+    return this.cubes.alive().some((c) => c.landTick < 0 && c.z - front <= this.reach);
+  }
+
   crumbleInterval(): number {
     const behind = this.connected().filter((t) => t.z < this.player.z).length;
     return this.crumble.interval(this.sector, behind, this.run.stacks("slowEarth"));
   }
 
   private crumbleWarning(): void {
-    if (!this.crumble.enabled || this.crumble.warned || this.noFail) return;
+    if (!this.crumble.enabled || this.crumble.warned || this.noFail || !this.crumble.contacted) return;
     const interval = this.crumbleInterval();
     if (this.crumble.counter === interval - 1 && this.f === this.tickLen - TUNING.crumble.warnFrames) {
       const z = this.grid.rearZ();
@@ -710,6 +720,8 @@ export class World {
     if (this.config.assist) this.tickLen = Math.round(this.tickLen * 1.15);
     this.lastStand.usedThisSector = false;
     this.absolutionUsed = false;
+    const hold = TUNING.crumble.holdUntilContact;
+    if ((this.config.mode === "endless" || this.config.mode === "daily") && (hold === "sector" || (hold === "run" && first))) this.crumble.contacted = false;
     this.events.push({ t: "SectorStart", sector: id, tickLen: this.tickLen });
   }
 

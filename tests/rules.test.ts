@@ -162,14 +162,27 @@ describe("core rules", () => {
     expect(interval).toBe(TUNING.crumble.startInterval);
     let warned = -1;
     let fell = -1;
-    for (let i = 0; i < interval * w.tickLen + 10; i++) {
+    // the timer only runs after first contact (TUNING.crumble.holdUntilContact): provide it with a harmless
+    // Forbidden in column 0 (it passes; Forbidden escapes cost nothing), then watch the first timed crumble
+    w.spawnFormation(["F......"], 99, (w.grid.frontZ() ?? 3) + 2);
+    for (let i = 0; i < 6000 && fell < 0; i++) {
       w.step(input());
       for (const e of w.events.drain()) {
-        if (e.t === "CrumbleWarn" && warned < 0) warned = w.frame;
-        if (e.t === "Crumble" && fell < 0) fell = w.frame;
+        if (e.t === "CrumbleWarn") warned = w.frame;
+        if (e.t === "Crumble" && e.reason === "timer" && fell < 0) fell = w.frame;
       }
     }
+    expect(fell).toBeGreaterThan(0);
     expect(fell - warned).toBe(TUNING.crumble.warnFrames);
+  });
+
+  it("Crumble holds until first contact in each Sector", () => {
+    const w = new World({ mode: "endless", seed: 3 });
+    for (let i = 0; i < 4 * w.tickLen; i++) w.step(input());
+    expect(w.crumble.contacted).toBe(false);
+    expect(w.crumble.counter).toBe(0);
+    until(w, () => w.crumble.contacted, 6000);
+    expect(w.cubes.alive().some((c) => c.z - (w.grid.frontZ() ?? 0) <= w.reach)).toBe(true);
   });
 
   it("chains multiply: n kills in one detonation score sum × n", () => {

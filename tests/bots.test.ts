@@ -3,7 +3,7 @@ import { runBot } from "./helpers";
 import { STAGES } from "../src/data/hundred";
 
 describe("Phase 2 exit: bots", () => {
-  it("competent bot survives 3 Sectors (tracked: GDD target is every seed; see TUNING_LOG.md)", () => {
+  it("Phase 2 exit: competent bot survives 3 Sectors on every seed (TUNING_LOG #3)", () => {
     const results: string[] = [];
     let survivors = 0;
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
@@ -12,7 +12,7 @@ describe("Phase 2 exit: bots", () => {
       results.push(`seed ${seed}: sector ${r.world.sector} ${r.world.outcome?.kind ?? "alive"}`);
     }
     console.log(`competent survival ${survivors}/8\n${results.join("\n")}`);
-    expect(survivors, results.join("\n")).toBeGreaterThanOrEqual(4);
+    expect(survivors, results.join("\n")).toBe(8);
   });
   it("novice bot falls", () => {
     const r = runBot({ mode: "endless", seed: 1 }, "novice", 60 * 60 * 20);
