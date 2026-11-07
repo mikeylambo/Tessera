@@ -11,7 +11,7 @@ import { Run } from "./Run";
 import { Crumble } from "./Crumble";
 import { Beacons } from "./Beacons";
 import { EventQueue, type FallCause, type BeaconReward } from "./Events";
-import { checkFormation } from "./Fairness";
+import { checkFormation, searchFormation, type SearchInput } from "./Fairness";
 import { createRng } from "./Rng";
 import { deepClone } from "./clone";
 import { chebyshev, isStandard, type Cell, type CubeType, type FrameInput, type TileType } from "./types";
@@ -784,17 +784,33 @@ export class World {
     const pool = FORMATIONS.filter((x) => x.band === band);
     const rng = this.rng.stream("formations");
     const mirror = this.rng.stream("mirror");
-    const connected = this.connected().map((t) => ({ x: t.x, z: t.z }));
     for (let attempt = 0; attempt <= TUNING.sector.fairnessRerolls; attempt++) {
       const def = rng.pick(pool);
       const rows = mirror.chance(0.5) ? def.rows.map(mirrorRow) : [...def.rows];
-      const res = checkFormation({ rows, connected, reach: this.reach, maxMarks: this.maxMarks, tickLen: this.tickLen });
+      const res = this.fairness(rows);
       this.lastFairness = { id: def.id, fair: res.fair, reason: res.reason, attempts: attempt + 1 };
       if (res.fair) return { ...def, rows };
     }
     const fb = FORMATIONS.find((x) => x.id === FALLBACK[band])!;
-    this.lastFairness = { id: fb.id, fair: true, reason: "fallback", attempts: TUNING.sector.fairnessRerolls + 1 };
+    const fbRes = this.fairness(fb.rows);
+    this.lastFairness = { id: fb.id, fair: fbRes.fair, reason: `fallback:${fbRes.reason}`, attempts: TUNING.sector.fairnessRerolls + 1 };
     return fb;
+  }
+
+  /** Fairness of a formation spawned now (Design Law 5): cheap necessary conditions, then the plan search. */
+  fairness(rows: readonly string[]): { fair: boolean; reason: string } {
+    const connected = this.connected().map((t) => ({ x: t.x, z: t.z }));
+    const pre = checkFormation({ rows, connected, reach: this.reach, maxMarks: this.maxMarks, tickLen: this.tickLen });
+    if (!pre.fair) return pre;
+    const front = this.grid.frontZ() ?? this.player.z;
+    const z0 = front + TUNING.spawn.distance;
+    const interval = this.crumbleInterval();
+    const first = this.crumble.contacted ? interval - this.crumble.counter : Math.max(0, z0 - front - this.reach) + interval;
+    const crumbleAt: number[] = [];
+    if (this.crumble.enabled) for (let t = first; t < z0 - front + 12; t += interval) crumbleAt.push(t);
+    const input: SearchInput = { rows, z0, ground: connected, player: { x: this.player.x, z: this.player.z }, reach: this.reach, maxMarks: this.maxMarks, tickLen: this.tickLen, crumbleAt };
+    const r = searchFormation(input);
+    return { fair: r.fair, reason: r.fair ? "plan" : "no plan" };
   }
 
   lastFairness: { id: string; fair: boolean; reason: string; attempts: number } | null = null;

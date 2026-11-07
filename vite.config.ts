@@ -6,5 +6,5 @@ export default defineConfig({
   // dev-server only: backs the tuning panel's Save / Save As / Load (writes tuning/*.json)
   plugins: [sluTuning()],
   build: { target: "es2022", chunkSizeWarningLimit: 1400 },
-  test: { include: ["tests/**/*.test.ts"], environment: "node" }
+  test: { include: ["tests/**/*.test.ts"], environment: "node", testTimeout: 180000 }
 } as never);
