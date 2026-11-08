@@ -1,0 +1,40 @@
+{
+ "id": 77,
+ "name": "Veil of Glass",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "F.G.G.F",
+    "...S..."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    ".F.G.F.",
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 7
+ },
+ "par": 6
+}

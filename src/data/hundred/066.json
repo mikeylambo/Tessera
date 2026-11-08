@@ -1,0 +1,38 @@
+{
+ "id": 66,
+ "name": "Every Lesson",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..SFS..",
+    "...A..."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    "..SSS..",
+    "..SIS.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 8
+}

@@ -1,0 +1,41 @@
+{
+ "id": 29,
+ "name": "Glass and Restraint",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..G.G..",
+    "...F..."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "...S...",
+    "...S...",
+    "..G.G..",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 6
+ },
+ "par": 5
+}

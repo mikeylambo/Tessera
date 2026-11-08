@@ -1,0 +1,47 @@
+{
+ "id": 40,
+ "name": "Rain",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..S.S..",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 6,
+ "skyfall": [
+  {
+   "at": 3,
+   "x": 1,
+   "z": 5
+  },
+  {
+   "at": 5,
+   "x": 5,
+   "z": 5
+  },
+  {
+   "at": 8,
+   "x": 3,
+   "z": 6
+  }
+ ]
+}

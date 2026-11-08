@@ -1,0 +1,58 @@
+{
+ "id": 45,
+ "name": "Material",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 7,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...S...",
+    "..G.G..",
+    "...S..."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 12,
+   "rows": [
+    "...I...",
+    "...S...",
+    "..SAS.."
+   ]
+  },
+  {
+   "at": 13,
+   "z": 16,
+   "rows": [
+    "...S...",
+    "...S...",
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 10
+ },
+ "par": 17,
+ "skyfall": [
+  {
+   "at": 9,
+   "x": 3,
+   "z": 6
+  }
+ ]
+}

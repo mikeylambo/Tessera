@@ -1,0 +1,37 @@
+{
+ "id": 47,
+ "name": "Tether",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..PP...",
+    "S.....S"
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "...PP.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 6
+}

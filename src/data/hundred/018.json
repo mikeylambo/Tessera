@@ -1,0 +1,38 @@
+{
+ "id": 18,
+ "name": "Glyph Bank",
+ "act": 2,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "A.....A"
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "..SSS..",
+    "..SSS..",
+    "S.....S"
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 9
+}

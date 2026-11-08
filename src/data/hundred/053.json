@@ -1,0 +1,46 @@
+{
+ "id": 53,
+ "name": "Hold On",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  0
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 7,
+   "rows": [
+    "...F...",
+    "..S.S.."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 9,
+   "rows": [
+    ".F.S.F.",
+    "...S..."
+   ]
+  },
+  {
+   "at": 10,
+   "z": 12,
+   "rows": [
+    "..S.S..",
+    "..SSS.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 24
+ },
+ "par": 9,
+ "lastStand": true
+}

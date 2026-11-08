@@ -1,0 +1,46 @@
+{
+ "id": 71,
+ "name": "Small Ground",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  0
+ ],
+ "crumble": 8,
+ "waves": [
+  {
+   "at": 1,
+   "z": 7,
+   "rows": [
+    "...S...",
+    "..F.F.."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 10,
+   "rows": [
+    "..S.S..",
+    "...S..."
+   ]
+  },
+  {
+   "at": 10,
+   "z": 13,
+   "rows": [
+    "...S...",
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 22
+ },
+ "par": 7,
+ "lastStand": true
+}

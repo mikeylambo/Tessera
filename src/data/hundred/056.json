@@ -1,0 +1,39 @@
+{
+ "id": 56,
+ "name": "Glass Tether",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..PP...",
+    "..G.G.."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    "...PP..",
+    "...G..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 6
+ },
+ "par": 7
+}

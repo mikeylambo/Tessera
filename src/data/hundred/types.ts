@@ -33,6 +33,8 @@ export interface StageDef {
   crumble: number;
   waves: StageWave[];
   beacons?: Array<{ at: number; x: number; z: number }>;
+  /** Skyfall cubes: telegraphed 2 ticks (LOCKED) before landing on (x, z), then they roll. */
+  skyfall?: Array<{ at: number; x: number; z: number; type?: "stone" | "glass" | "iron" | "advantage" | "forbidden" }>;
   objective: StageObjective;
   /** Solver/bot-derived par in marks placed. */
   par: number;

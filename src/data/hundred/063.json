@@ -1,0 +1,45 @@
+{
+ "id": 63,
+ "name": "Restless",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "F.PP.F.",
+    "..S.S.."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    ".F.PP.F",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 8,
+ "skyfall": [
+  {
+   "at": 5,
+   "x": 3,
+   "z": 5
+  }
+ ]
+}

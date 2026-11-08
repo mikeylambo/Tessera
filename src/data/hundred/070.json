@@ -1,0 +1,50 @@
+{
+ "id": 70,
+ "name": "Seventy",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 7,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..PP...",
+    ".F...F.",
+    "...S..."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    "..SAS..",
+    "...PP.."
+   ]
+  },
+  {
+   "at": 13,
+   "z": 16,
+   "rows": [
+    "...S...",
+    "...S...",
+    "...S...",
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 9
+ },
+ "par": 6
+}

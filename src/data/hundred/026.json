@@ -1,0 +1,36 @@
+{
+ "id": 26,
+ "name": "Glass",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...G..."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 10,
+   "rows": [
+    "..G.G.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 3
+}

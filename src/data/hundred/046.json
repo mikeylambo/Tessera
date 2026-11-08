@@ -1,0 +1,29 @@
+{
+ "id": 46,
+ "name": "Two Halves",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 8,
+   "rows": [
+    "..PP..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 2
+}

@@ -1,0 +1,39 @@
+{
+ "id": 55,
+ "name": "Phase Storm",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    ".PP.PP.",
+    "...S..."
+   ]
+  },
+  {
+   "at": 8,
+   "z": 13,
+   "rows": [
+    "..PP...",
+    "..S.S..",
+    "...PP.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 11
+}

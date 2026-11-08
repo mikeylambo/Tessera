@@ -1,0 +1,47 @@
+{
+ "id": 54,
+ "name": "Purify",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  0
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 7,
+   "rows": [
+    "S.....S",
+    "..F.F.."
+   ]
+  },
+  {
+   "at": 4,
+   "z": 9,
+   "rows": [
+    "..SSS..",
+    "S.....S"
+   ]
+  },
+  {
+   "at": 9,
+   "z": 12,
+   "rows": [
+    "..SAS..",
+    ".S...S.",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 26
+ },
+ "par": 11,
+ "lastStand": true
+}

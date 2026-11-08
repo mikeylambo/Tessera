@@ -1,0 +1,42 @@
+{
+ "id": 34,
+ "name": "Iron and Glass",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...I...",
+    "..G.G.."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    "...S...",
+    "...G...",
+    "...S...",
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 7
+ },
+ "par": 12
+}

@@ -1,0 +1,38 @@
+{
+ "id": 33,
+ "name": "Anvils",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..I.I..",
+    "...S..."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    "..S.S..",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 17
+}

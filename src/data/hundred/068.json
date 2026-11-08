@@ -1,0 +1,52 @@
+{
+ "id": 68,
+ "name": "Long Shadow",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 11,
+ "skyfall": [
+  {
+   "at": 2,
+   "x": 3,
+   "z": 5
+  },
+  {
+   "at": 4,
+   "x": 1,
+   "z": 6
+  },
+  {
+   "at": 6,
+   "x": 5,
+   "z": 6
+  },
+  {
+   "at": 8,
+   "x": 3,
+   "z": 6,
+   "type": "iron"
+  }
+ ]
+}

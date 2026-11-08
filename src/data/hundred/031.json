@@ -1,0 +1,29 @@
+{
+ "id": 31,
+ "name": "Iron",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 8,
+   "rows": [
+    "...I..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 6
+}

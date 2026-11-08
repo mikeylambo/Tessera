@@ -1,0 +1,46 @@
+{
+ "id": 60,
+ "name": "Pressure of Two",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 6,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..PP...",
+    "...S..."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "...PP..",
+    "..S.S.."
+   ]
+  },
+  {
+   "at": 11,
+   "z": 14,
+   "rows": [
+    ".PP.PP."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 24
+ },
+ "par": 11
+}

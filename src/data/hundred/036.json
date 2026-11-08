@@ -1,0 +1,38 @@
+{
+ "id": 36,
+ "name": "Forge",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "S..I..S",
+    ".F...F."
+   ]
+  },
+  {
+   "at": 7,
+   "z": 12,
+   "rows": [
+    "..SAS..",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 9
+}

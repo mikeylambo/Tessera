@@ -1,0 +1,46 @@
+{
+ "id": 64,
+ "name": "Hold Together",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  0
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 7,
+   "rows": [
+    "..PP...",
+    "..F.F.."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 10,
+   "rows": [
+    "..SSS..",
+    "...PP.."
+   ]
+  },
+  {
+   "at": 11,
+   "z": 14,
+   "rows": [
+    "S.....S",
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 24
+ },
+ "par": 11,
+ "lastStand": true
+}

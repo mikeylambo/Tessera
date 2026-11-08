@@ -1,0 +1,47 @@
+{
+ "id": 52,
+ "name": "Last Stand",
+ "act": 4,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  0
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 7,
+   "rows": [
+    "F.....F",
+    "...S..."
+   ]
+  },
+  {
+   "at": 4,
+   "z": 9,
+   "rows": [
+    "..S.S..",
+    "...S...",
+    ".F...F."
+   ]
+  },
+  {
+   "at": 9,
+   "z": 12,
+   "rows": [
+    "..SSS..",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 22
+ },
+ "par": 8,
+ "lastStand": true
+}

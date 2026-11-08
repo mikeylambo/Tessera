@@ -1,0 +1,48 @@
+{
+ "id": 41,
+ "name": "Glass Rain",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 6
+ },
+ "par": 3,
+ "skyfall": [
+  {
+   "at": 2,
+   "x": 3,
+   "z": 5,
+   "type": "glass"
+  },
+  {
+   "at": 4,
+   "x": 3,
+   "z": 6
+  },
+  {
+   "at": 6,
+   "x": 2,
+   "z": 5
+  }
+ ]
+}

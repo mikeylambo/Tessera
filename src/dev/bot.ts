@@ -55,7 +55,24 @@ export class Bot {
         this.cooldown = 6;
         return { ...input, mark: bad };
       }
-      if (allLoaded || marks.length >= w.maxMarks) {
+      // a lone Phase half can't die: mark its twin first (both halves, one detonation)
+      const lonePhase = marks
+        .map((m) => w.cubeAt(m))
+        .find((c) => c && c.type === "phase" && !marks.some((m2) => { const t = w.cubes.byId(c.twin); const l = t && w.logical(t); return l && l.x === m2.x && l.z === m2.z; }));
+      if (lonePhase) {
+        const twin = w.cubes.byId(lonePhase.twin);
+        const tl = twin && w.logical(twin);
+        if (tl && w.inReach(tl) && marks.length < w.maxMarks && this.cooldown === 0) {
+          this.cooldown = 2;
+          return { ...input, mark: tl };
+        }
+        if (marks.length >= w.maxMarks || !tl || !w.inReach(tl)) {
+          // can't complete the pair: clear the dead mark instead of wasting a detonation
+          const dead = marks.find((m) => w.cubeAt(m)?.id === lonePhase.id)!;
+          this.cooldown = 4;
+          return { ...input, mark: dead };
+        }
+      } else if (allLoaded || marks.length >= w.maxMarks) {
         this.cooldown = 4;
         return { ...input, detonate: true };
       }

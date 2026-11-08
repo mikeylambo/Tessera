@@ -1,0 +1,40 @@
+{
+ "id": 67,
+ "name": "Glass Bridge",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...G...",
+    "...G...",
+    "...G..."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 12,
+   "rows": [
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 7
+ },
+ "par": 5
+}

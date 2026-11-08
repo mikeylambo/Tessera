@@ -1,0 +1,50 @@
+{
+ "id": 37,
+ "name": "Material Crossing",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 7,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...I...",
+    "..S.S.."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "...G...",
+    "...S...",
+    "..G.G.."
+   ]
+  },
+  {
+   "at": 12,
+   "z": 14,
+   "rows": [
+    "...S...",
+    "...S...",
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 9
+ },
+ "par": 15
+}

@@ -1,0 +1,37 @@
+{
+ "id": 11,
+ "name": "Do Not Touch",
+ "act": 2,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...F..."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 10,
+   "rows": [
+    "..F.F.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 18
+ },
+ "par": 0
+}

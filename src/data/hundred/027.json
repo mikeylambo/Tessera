@@ -1,0 +1,39 @@
+{
+ "id": 27,
+ "name": "Temporary",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...G...",
+    "...G..."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 11,
+   "rows": [
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 6
+ },
+ "par": 3
+}

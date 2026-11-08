@@ -128,6 +128,14 @@ try {
     check(results, "stage clear → Results");
     await sleep(700);
     await page.screenshot({ path: `${OUT}/05-stage1-results.png` });
+    // Results → Stages: Act I page, stage 2 open, stage 3 skippable (sequential unlock + skips)
+    await page.locator('.t-item[data-id="stages"]').click();
+    const select = await waitFor(page, () => window.__GAME.state().screen === "hundred", 4000);
+    check(select, "Results → stage select");
+    const grid = await page.evaluate(() => [...document.querySelectorAll(".t-grid .t-item")].map((b) => ({ id: b.dataset.id, disabled: b.disabled, text: b.textContent })));
+    check(grid.length === 11 && grid[10].id === "next", `Act I page lists 10 stages + next-act (${grid.length})`);
+    check(!grid[1].disabled && grid[2].text.includes("skip") && grid[3].disabled, `stage 2 open, 3 skippable, 4 locked (${grid.slice(1, 4).map((g) => g.text).join(" | ")})`);
+    await page.screenshot({ path: `${OUT}/05b-stage-select.png` });
     check(errors.length === 0, `zero console errors through stage 1 (${errors.slice(0, 3).join(" | ")})`);
     await page.close();
   }

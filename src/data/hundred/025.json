@@ -1,0 +1,51 @@
+{
+ "id": 25,
+ "name": "The Veil",
+ "act": 2,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 7,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..S.S..",
+    "F..S..F"
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "...A...",
+    "..SSS..",
+    "..SSS.."
+   ]
+  },
+  {
+   "at": 13,
+   "z": 15,
+   "rows": [
+    "...S...",
+    "...S...",
+    "...S...",
+    "...S...",
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 11
+ },
+ "par": 11
+}

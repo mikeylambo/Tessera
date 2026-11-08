@@ -114,6 +114,7 @@ export class World {
   lastCause: { kind: string; frame: number; x: number; z: number } | null = null;
   private stageWaveIdx = 0;
   private stageBeaconIdx = 0;
+  private stageSkyIdx = 0;
 
   constructor(config: WorldConfig) {
     this.config = config;
@@ -501,24 +502,31 @@ export class World {
       this.echoTick = -1;
     }
 
-    // rolls land
+    // rolls land (all grounded cubes first, so landing checks see final positions — order-independent)
     for (const c of this.cubes.alive()) {
-      if (c.landTick >= 0) {
-        if (c.landTick <= this.tick) {
-          c.landTick = -1;
-          c.sinceLand = 0;
-          c.age = 0;
-          this.events.push({ t: "SkyfallLand", id: c.id, x: c.x, z: c.z });
-          if (this.player.alive && this.player.x === c.x && this.player.z === c.z) this.crush(c);
-        }
-        continue;
-      }
+      if (c.landTick >= 0) continue;
       if (c.age >= 1) {
         c.z -= 1;
         this.events.push({ t: "Roll", id: c.id, x: c.x, z: c.z });
         if (c.sinceLand >= 0) c.sinceLand++;
       }
       c.age++;
+    }
+    // then Skyfall landings
+    for (const c of this.cubes.alive()) {
+      if (c.landTick < 0 || c.landTick > this.tick) continue;
+      // a monolith can't land on another: if the telegraphed cell is occupied, the falling cube shatters
+      const occupant = this.cubes.alive().find((o) => o !== c && o.landTick < 0 && o.x === c.x && o.z === c.z);
+      if (occupant) {
+        this.cubes.kill(c);
+        this.events.push({ t: "SkyfallShatter", id: c.id, x: c.x, z: c.z });
+        continue;
+      }
+      c.landTick = -1;
+      c.sinceLand = 0;
+      c.age = 1; // rolls in step with the formation from the next tick (no fade-in pause: that let cubes behind catch up)
+      this.events.push({ t: "SkyfallLand", id: c.id, x: c.x, z: c.z });
+      if (this.player.alive && this.player.x === c.x && this.player.z === c.z) this.crush(c);
     }
 
     // escapes: anything past the rear edge of the ground
@@ -893,6 +901,11 @@ export class World {
       const w = s.waves[this.stageWaveIdx++]!;
       this.spawnFormation(w.rows, 1, w.z);
     }
+    const sf = s.skyfall ?? [];
+    while (this.stageSkyIdx < sf.length && sf[this.stageSkyIdx]!.at <= this.tick) {
+      const k = sf[this.stageSkyIdx++]!;
+      this.spawnSkyfall(k.type ?? "stone", k.x, k.z, 1);
+    }
     const bs = s.beacons ?? [];
     while (this.stageBeaconIdx < bs.length && bs[this.stageBeaconIdx]!.at <= this.tick) {
       const b = bs[this.stageBeaconIdx++]!;
@@ -903,7 +916,7 @@ export class World {
 
   get stageWavesDone(): boolean {
     const s = this.config.stage;
-    return !!s && this.stageWaveIdx >= s.waves.length;
+    return !!s && this.stageWaveIdx >= s.waves.length && this.stageSkyIdx >= (s.skyfall?.length ?? 0);
   }
 
   private checkObjective(): void {

@@ -6,6 +6,8 @@ import type { WorldConfig } from "../../sim/World";
 export interface Profile {
   hundred: Record<number, { rating: number; bestMarks: number }>;
   skips: number;
+  /** Stages passed by spending a skip (unlock the next stage like a clear; GDD §18). Additive field, defaulted on load. */
+  skipped: number[];
   bestDepth: number;
   bestScore: number;
   dailyRanked: Record<string, { score: number; depth: number }>;
@@ -30,6 +32,7 @@ export function defaultProfile(): Profile {
   return {
     hundred: {},
     skips: 3,
+    skipped: [],
     bestDepth: 0,
     bestScore: 0,
     dailyRanked: {},

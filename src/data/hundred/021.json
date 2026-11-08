@@ -1,0 +1,56 @@
+{
+ "id": 21,
+ "name": "Forward Light",
+ "act": 2,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 8,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...S...",
+    "..S.S..",
+    "...S..."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "...S...",
+    "...F...",
+    "...S..."
+   ]
+  },
+  {
+   "at": 11,
+   "z": 14,
+   "rows": [
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 8
+ },
+ "par": 7,
+ "beacons": [
+  {
+   "at": 4,
+   "x": 3,
+   "z": 9
+  }
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "id": 19,
+ "name": "Ledge",
+ "act": 2,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 6,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "..S.S..",
+    "...S..."
+   ]
+  },
+  {
+   "at": 5,
+   "z": 10,
+   "rows": [
+    "...S...",
+    "..S.S.."
+   ]
+  },
+  {
+   "at": 10,
+   "z": 12,
+   "rows": [
+    "...S...",
+    "...S..."
+   ]
+  },
+  {
+   "at": 15,
+   "z": 14,
+   "rows": [
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 24
+ },
+ "par": 10
+}

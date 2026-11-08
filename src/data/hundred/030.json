@@ -1,0 +1,56 @@
+{
+ "id": 30,
+ "name": "Fragile Crossing",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 7,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "...G...",
+    "...S...",
+    "..G.G.."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 12,
+   "rows": [
+    "...S...",
+    "...G...",
+    "...S..."
+   ]
+  },
+  {
+   "at": 12,
+   "z": 15,
+   "rows": [
+    "..S.S.."
+   ]
+  },
+  {
+   "at": 15,
+   "z": 17,
+   "rows": [
+    "...S...",
+    "...S..."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "exit",
+  "z": 9
+ },
+ "par": 11
+}

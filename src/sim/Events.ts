@@ -10,6 +10,7 @@ export type SimEvent =
   | { t: "CubeSpawn"; id: number; type: CubeType; x: number; z: number; sky?: boolean }
   | { t: "SkyfallWarn"; id: number; x: number; z: number; type: CubeType }
   | { t: "SkyfallLand"; id: number; x: number; z: number }
+  | { t: "SkyfallShatter"; id: number; x: number; z: number }
   | { t: "Kill"; id: number; type: CubeType; x: number; z: number; chain: number; index: number; blast: boolean; points: number }
   | { t: "Chain"; n: number; points: number; x: number; z: number }
   | { t: "IronHit"; id: number; hp: number; x: number; z: number }

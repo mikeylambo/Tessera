@@ -1,0 +1,46 @@
+{
+ "id": 73,
+ "name": "Three Ways",
+ "act": 5,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 6,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "S..S..S",
+    ".F...F."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    "S..S..S",
+    "...F..."
+   ]
+  },
+  {
+   "at": 11,
+   "z": 14,
+   "rows": [
+    "S..S..S"
+   ]
+  }
+ ],
+ "objective": {
+  "type": "survive",
+  "ticks": 24
+ },
+ "par": 9
+}

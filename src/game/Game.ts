@@ -572,25 +572,43 @@ export class Game {
     });
   }
 
-  private showHundred(): void {
+  /** Stage n is open when n = 1 or stage n − 1 was cleared or skipped (sequential unlock, GDD §18). */
+  private stageOpen(n: number): boolean {
+    const p = this.profile.data;
+    return n === 1 || !!p.hundred[n - 1] || p.skipped.includes(n - 1);
+  }
+
+  private showHundred(actIndex?: number): void {
     const done = this.profile.data.hundred;
     const glyph = ["", "◇", "◆", "✦"];
-    const act = ACTS[0];
-    const items: MenuItem[] = STAGES.map((s) => {
-      const prevCleared = s.id === 1 || !!done[s.id - 1];
-      const skipAvail = this.profile.data.skips > 0;
-      return { id: String(s.id), label: String(s.id).padStart(3, "0"), detail: glyph[done[s.id]?.rating ?? 0] || "·", disabled: !prevCleared && !skipAvail };
+    // default page: the act holding the first open, uncleared stage
+    const frontier = STAGES.find((s) => this.stageOpen(s.id) && !done[s.id])?.id ?? 1;
+    const ai = actIndex ?? Math.max(0, ACTS.findIndex((a) => frontier >= a.first && frontier <= a.last));
+    const act = ACTS[ai]!;
+    const roman = ["I", "II", "III", "IV", "V"][ai];
+    const stages = STAGES.filter((s) => s.id >= act.first && s.id <= act.last);
+    const items: MenuItem[] = stages.map((s) => {
+      const open = this.stageOpen(s.id);
+      // the first locked stage past the frontier can be reached by spending a skip
+      const skippable = !open && this.stageOpen(s.id - 1) && this.profile.data.skips > 0;
+      return { id: String(s.id), label: String(s.id).padStart(3, "0"), detail: done[s.id] ? glyph[done[s.id]!.rating] : skippable ? "skip" : open ? "·" : "", disabled: !open && !skippable };
     });
+    if (ai > 0) items.push({ id: "prev", label: "◂", detail: ["I", "II", "III", "IV", "V"][ai - 1] });
+    if (ai < ACTS.length - 1) items.push({ id: "next", label: "▸", detail: ["I", "II", "III", "IV", "V"][ai + 1] });
     this.ui.show({
       id: "hundred",
-      title: `I · ${act.name.toUpperCase()}`,
-      subtitle: `Stages ${act.first}–${act.last} · ${this.profile.data.skips} skips`,
+      title: `${roman} · ${act.name.toUpperCase()}`,
+      subtitle: `${act.first}–${act.last} · ${this.profile.data.skips} skips`,
       layout: "grid",
       items,
       onPick: (id) => {
+        if (id === "prev") return this.showHundred(ai - 1);
+        if (id === "next") return this.showHundred(ai + 1);
         const n = Number(id);
-        if (n > 1 && !done[n - 1]) {
-          this.profile.data.skips = Math.max(0, this.profile.data.skips - 1);
+        if (!this.stageOpen(n)) {
+          if (this.profile.data.skips <= 0 || !this.stageOpen(n - 1)) return;
+          this.profile.data.skips -= 1;
+          this.profile.data.skipped.push(n - 1);
           void this.profile.save();
         }
         this.startStage(n);

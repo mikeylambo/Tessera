@@ -1,0 +1,38 @@
+{
+ "id": 28,
+ "name": "Shatter Line",
+ "act": 3,
+ "ground": [
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX"
+ ],
+ "player": [
+  3,
+  1
+ ],
+ "crumble": 0,
+ "waves": [
+  {
+   "at": 1,
+   "z": 9,
+   "rows": [
+    "G.G.G.G",
+    "...S..."
+   ]
+  },
+  {
+   "at": 6,
+   "z": 11,
+   "rows": [
+    ".G.S.G.",
+    "..S.S.."
+   ]
+  }
+ ],
+ "objective": {
+  "type": "clear"
+ },
+ "par": 10
+}
