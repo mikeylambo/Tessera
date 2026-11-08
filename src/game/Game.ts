@@ -80,7 +80,7 @@ export class Game {
   manual = false;
   lastEvents: SimEvent[] = [];
   /** Every cell the run has held ground on (share card silhouette; presentation-side). */
-  trail = new Map<number, { x: number; z: number }>();
+  trail = new Map<number, { x: number; z: number; start?: boolean }>();
   private readonly sharer = new BrowserShare();
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement, flags: UrlFlags) {
@@ -290,7 +290,7 @@ export class Game {
     this.world = new World(config);
     this.view.attach(this.world);
     this.recorder.reset();
-    this.trail = new Map(this.world.grid.list().map((t) => [t.z * 8 + t.x, { x: t.x, z: t.z }]));
+    this.trail = new Map(this.world.grid.list().map((t) => [t.z * 8 + t.x, { x: t.x, z: t.z, start: true }]));
     this.formationsSeen = 0;
     this.stepsThisRun = 0;
     this.acc = 0;

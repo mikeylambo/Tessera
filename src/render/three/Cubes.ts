@@ -47,7 +47,7 @@ export class CubesView {
       phase: new THREE.MeshPhysicalMaterial({ color: 0xc9d4ff, roughness: 0.2, transparent: true, opacity: 0.32, emissive: 0x9fb2ff, emissiveIntensity: 0.25, depthWrite: false }),
       forbiddenFrame: new THREE.MeshStandardMaterial({ color: 0x2a2633, roughness: 0.3, metalness: 0.5, emissive: 0x6e6680, emissiveIntensity: 0.28 }),
       forbiddenCore: new THREE.MeshBasicMaterial({ color: PALETTE.forbiddenCore, toneMapped: false }),
-      pip: new THREE.MeshStandardMaterial({ color: 0xc9ccd2, metalness: 1, roughness: 0.25 })
+      pip: new THREE.MeshStandardMaterial({ color: 0x8e939b, metalness: 0.6, roughness: 0.55 }) // matte: must fog with its cube, never outshine it
     };
     const chev = new THREE.PlaneGeometry(TILE * 0.6, TILE * 0.6).rotateX(-Math.PI / 2);
     this.chevron = new THREE.Mesh(chev, new THREE.MeshBasicMaterial({ map: chevronTexture(), color: 0xdfe6f2, transparent: true, opacity: 0.75, depthWrite: false, toneMapped: false }));

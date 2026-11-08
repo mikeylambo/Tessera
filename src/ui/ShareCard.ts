@@ -3,7 +3,8 @@
  * Depth and Score. Two players' cards for the same Daily look different (GDD §43.3).
  */
 export interface ShareCardInput {
-  cells: ReadonlyArray<{ x: number; z: number }>;
+  /** `start` = the given start slab (drawn faint: it was not earned). */
+  cells: ReadonlyArray<{ x: number; z: number; start?: boolean }>;
   depth: number;
   score: number;
   label: string;
@@ -48,6 +49,12 @@ export function renderShareCard(inp: ShareCardInput): HTMLCanvasElement {
     const t = rows > 1 ? (p.z - minZ) / (rows - 1) : 1;
     const px = x0 + p.x * cell;
     const py = bottom - (p.z - minZ + 1) * cell;
+    if (p.start) {
+      g.strokeStyle = "rgba(138,147,163,0.18)";
+      g.lineWidth = 1.5;
+      g.strokeRect(px + 3, py + 3, cell - 6, cell - 6);
+      continue;
+    }
     g.fillStyle = `rgba(58,54,50,${0.75 + 0.25 * t})`;
     g.fillRect(px + 2, py + 2, cell - 4, cell - 4);
     g.strokeStyle = `rgba(255,166,74,${0.25 + 0.65 * t})`;
