@@ -39,6 +39,9 @@ export type SimEvent =
   | { t: "Purify" }
   | { t: "PerfectSector"; sector: number }
   | { t: "SectorStart"; sector: number; tickLen: number }
+  | { t: "ChamberStart"; id: string; marks: number; glyphs: number }
+  | { t: "ChamberGlyph"; index: number; armed: boolean }
+  | { t: "ChamberEnd"; won: boolean }
   | { t: "SectorClear"; sector: number; perfect: boolean }
   | { t: "Score"; amount: number; total: number; reason: string }
   | { t: "Fall"; x: number; z: number; cause: FallCause }

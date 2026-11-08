@@ -105,6 +105,7 @@ export class Game {
       e.preventDefault();
       this.devices.pressDetonate();
     });
+    this.ui.onGlyph = (i) => this.devices.pressPick(i);
     this.ui.blastBtn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       this.devices.pressBlast();
@@ -234,6 +235,8 @@ export class Game {
       else if (e.t === "MarkPlaced") this.profile.data.onboarding.markSuccess++;
       else if (e.t === "Detonate" && e.marks > 0) this.profile.data.onboarding.detonateSuccess++;
       else if (e.t === "SectorStart" && e.sector > 1) this.music.resetClock();
+      else if (e.t === "ChamberStart") this.music.setState("chamber");
+      else if (e.t === "ChamberEnd") this.music.setState("play");
     }
     const ob = this.profile.data.onboarding;
     if (!ob.retired && ob.markSuccess >= 2 * TUNING.onboarding.ghostRetireSuccesses && ob.detonateSuccess >= TUNING.onboarding.ghostRetireSuccesses && this.world?.config.stage && this.world.config.stage.id > 3) {
@@ -255,6 +258,7 @@ export class Game {
     const depth = Math.max(0, w.depthRow);
     const sector = mode === "hundred" ? `${String(w.config.stage?.id ?? 0).padStart(3, "0")} · ${w.config.stage?.name.toUpperCase() ?? ""}` : `SECTOR ${w.sector} · DEPTH ${depth}`;
     this.ui.setHud({ sector, score: w.score.total, runes: w.run.runes.map((r) => runeById(r).glyph), glyphs: w.run.glyphs.length });
+    this.ui.chamber(w.chamber ? { marksLeft: w.chamber.def.marks - w.marks.count, armed: w.chamber.armed } : null);
     if (this.flags.playtest) {
       const fair = w.lastFairness ? `${w.lastFairness.id} ${w.lastFairness.reason} ×${w.lastFairness.attempts}` : "-";
       this.ui.overlay(`fps ${this.fps.value.toFixed(0)} (worst ${this.fps.worst.toFixed(1)} ms)\nframe ${w.frame} tick ${w.tick}.${w.f}/${w.tickLen}\ncubes ${w.cubes.count} ground ${w.connected().length}\ncrumble ${w.crumble.counter}/${w.crumbleInterval()}\nfair ${fair}\nhash ${w.stateHash().slice(0, 8)}`);

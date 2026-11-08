@@ -145,6 +145,12 @@ export class WorldView {
         case "Fall":
           this.feel.hold = true;
           break;
+        case "ChamberStart":
+          this.feel.extraUp = 12; // GDD §15: Chamber rises toward a near top-down view (~57° pitch)
+          break;
+        case "ChamberEnd":
+          this.feel.extraUp = 0;
+          break;
         default:
           break;
       }
@@ -180,7 +186,10 @@ export class WorldView {
     const front = w.grid.frontZ() ?? w.player.z;
     const nearest = w.cubes.alive().reduce((m, c) => Math.min(m, c.z), Infinity);
     const fy = w.player.alive ? Math.max(0, this.figure.root.position.y) * 0.5 : 0;
-    this.feel.updateCamera(this.scene.camera, { x: this.figure.root.position.x, y: fy, z: pz }, nearest - front > 10, realDt);
+    // Chamber: frame the frozen puzzle from above (GDD §15 "rises to 22 units, near top-down")
+    const ch = w.chamber;
+    const focus = ch ? { x: 0, y: 0, z: wz(ch.z0 + (ch.def.rows.length - 1) / 2) + TUNING.camera.ahead } : { x: this.figure.root.position.x, y: fy, z: pz };
+    this.feel.updateCamera(this.scene.camera, focus, !ch && nearest - front > 10, realDt);
     this.scene.updateAtmosphere(pz, pdt);
     this.invert += (this.invertTarget - this.invert) * Math.min(1, realDt * 3);
     this.scene.setInversion(this.invert, this.settings.reducedMotion ? 0 : this.invert * 0.003);

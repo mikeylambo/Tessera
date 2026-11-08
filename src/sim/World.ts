@@ -1,6 +1,7 @@
 import { TUNING, tickForSector } from "../data/tuning";
 import { FORMATIONS, FALLBACK, BAND_GAP, bandForSector, mirrorRow, type FormationDef } from "../data/formations";
 import { RUNES, type RuneId } from "../data/runes";
+import { CHAMBERS, CHAMBER_RUNES, type ChamberDef } from "../data/chambers";
 import type { StageDef } from "../data/hundred/types";
 import { Grid, type Tile } from "./Grid";
 import { Cubes, type Cube } from "./Cubes";
@@ -158,6 +159,7 @@ export class World {
   }
 
   get maxMarks(): number {
+    if (this.chamber) return this.chamber.def.marks;
     return TUNING.marks.maxActive + this.run.stacks("thirdEye");
   }
 
@@ -197,6 +199,10 @@ export class World {
       return;
     }
     this.frame++;
+    if (this.chamber) {
+      this.chamberStep(input);
+      return;
+    }
 
     if (this.outcome) {
       this.player.update(0, 0, this.moveCtx, this.events);
@@ -767,10 +773,15 @@ export class World {
     }
     if (plan.spawned < plan.formations && this.tick >= plan.nextSpawnTick && this.cubes.count < this.liveCap()) {
       const def = this.pickFormation();
-      const rows = this.spawnFormation(def.rows, plan.id);
-      plan.spawned++;
-      this.scheduleSkyfall(plan.id);
-      plan.nextSpawnTick = this.tick + rows + BAND_GAP[bandForSector(plan.id)];
+      if (!def) {
+        // nothing fair can spawn right now (Design Law 5): wait a tick and look again
+        plan.nextSpawnTick = this.tick + 1;
+      } else {
+        const rows = this.spawnFormation(def.rows, plan.id);
+        plan.spawned++;
+        this.scheduleSkyfall(plan.id);
+        plan.nextSpawnTick = this.tick + rows + BAND_GAP[bandForSector(plan.id)];
+      }
     }
     if (plan.beaconTicks.length && this.tick >= plan.beaconTicks[0]!) {
       plan.beaconTicks = plan.beaconTicks.slice(1);
@@ -789,11 +800,13 @@ export class World {
         this.events.push({ t: "Announce", line: "beautiful" });
       }
       this.breather = TUNING.sector.breatherTicks;
-      this.offerRunes();
+      // every 4th Sector: a Chamber puzzle first, then the Rune pick (GDD §17)
+      if (plan.id % 4 === 0 && this.config.mode !== "sandbox") this.beginChamber();
+      else this.offerRunes();
     }
   }
 
-  private pickFormation(): FormationDef {
+  private pickFormation(): FormationDef | null {
     const band = bandForSector(this.sector);
     const pool = FORMATIONS.filter((x) => x.band === band);
     const rng = this.rng.stream("formations");
@@ -809,7 +822,20 @@ export class World {
     const fb = { ...fbDef, rows: this.gateRows(fbDef.rows) };
     const fbRes = this.fairness(fb.rows);
     this.lastFairness = { id: fb.id, fair: fbRes.fair, reason: `fallback:${fbRes.reason}`, attempts: TUNING.sector.fairnessRerolls + 1 };
-    return fb;
+    if (fbRes.fair) return fb;
+    // relief: a single Stone in the player's lane (or the nearest lane with a plan)
+    for (const dx of [0, -1, 1, -2, 2, -3, 3]) {
+      const x = this.player.x + dx;
+      if (x < 0 || x >= TUNING.grid.columns) continue;
+      const rows = [".".repeat(x) + "S" + ".".repeat(TUNING.grid.columns - 1 - x)];
+      const r = this.fairness(rows);
+      if (r.fair) {
+        this.lastFairness = { id: "relief", fair: true, reason: "relief", attempts: TUNING.sector.fairnessRerolls + 2 };
+        return { id: "relief", band, rows };
+      }
+    }
+    this.lastFairness = { id: "none", fair: true, reason: "deferred", attempts: TUNING.sector.fairnessRerolls + 2 };
+    return null;
   }
 
   /** Cube types the player hasn't met in The Hundred yet appear as Stone (Act II: F A · III: G I + Skyfall · IV: P). */
@@ -917,15 +943,120 @@ export class World {
     }
   }
 
-  private offerRunes(): void {
+  private offerRunes(rarePool = false): void {
     if (this.config.mode === "sandbox") return;
     const rng = this.rng.stream("runes");
-    const available = RUNES.filter((r) => this.run.stacks(r.id) < r.maxStack).map((r) => r.id);
+    const pool: readonly RuneId[] = rarePool ? CHAMBER_RUNES : RUNES.map((r) => r.id);
+    let available = RUNES.filter((r) => pool.includes(r.id) && this.run.stacks(r.id) < r.maxStack).map((r) => r.id);
+    if (!available.length) available = RUNES.filter((r) => this.run.stacks(r.id) < r.maxStack).map((r) => r.id);
     if (!available.length) return;
     const picks = this.run.shards >= TUNING.beacons.shardsPerRune ? 2 : 1;
     if (picks === 2) this.run.shards -= TUNING.beacons.shardsPerRune;
     this.pendingPicks = picks;
     this.runeOffers = rng.shuffle([...available]).slice(0, 3);
+  }
+
+  // ───────────────────────────────── Chambers (GDD §17) ─────────────────────────────────
+
+  /** Active Chamber: time frozen; marks on its cells, Glyphs armed by `pick`, one Detonate resolves everything. */
+  chamber: { def: ChamberDef; z0: number; cubes: number[]; glyphs: Cell[]; armed: boolean[]; result: "open" | "won" | "lost" } | null = null;
+  chambersWon = 0;
+
+  private beginChamber(): void {
+    const def = CHAMBERS[this.rng.stream("runes").int(0, CHAMBERS.length - 1)]!;
+    const front = this.grid.frontZ() ?? this.player.z;
+    const z0 = front + 2;
+    this.marks.clear();
+    const ids: number[] = [];
+    def.rows.forEach((row, r) =>
+      [...row].forEach((ch, x) => {
+        if (ch === ".") return;
+        const c = this.cubes.spawn(ch === "F" ? "forbidden" : "stone", x, z0 + r, -1);
+        c.age = 1;
+        ids.push(c.id);
+        this.events.push({ t: "CubeSpawn", id: c.id, type: c.type, x, z: c.z });
+      })
+    );
+    this.chamber = { def, z0, cubes: ids, glyphs: def.glyphs.map(([x, r]) => ({ x, z: z0 + r })), armed: def.glyphs.map(() => false), result: "open" };
+    this.events.push({ t: "ChamberStart", id: def.id, marks: def.marks, glyphs: def.glyphs.length });
+  }
+
+  private chamberStep(input: FrameInput): void {
+    const ch = this.chamber!;
+    if (input.pick >= 0 && input.pick < ch.armed.length) {
+      ch.armed[input.pick] = !ch.armed[input.pick];
+      this.events.push({ t: "ChamberGlyph", index: input.pick, armed: ch.armed[input.pick]! });
+    }
+    if (input.blast) {
+      // gamepad/one-button: arm the next unarmed Glyph, or disarm all when every Glyph is armed
+      const i = ch.armed.findIndex((a) => !a);
+      if (i >= 0) ch.armed[i] = true;
+      else ch.armed = ch.armed.map(() => false);
+      this.events.push({ t: "ChamberGlyph", index: i, armed: i >= 0 });
+    }
+    if (input.mark) {
+      const c = input.mark;
+      const inside = c.x >= 0 && c.x < TUNING.grid.columns && c.z >= ch.z0 && c.z < ch.z0 + ch.def.rows.length;
+      if (inside) {
+        const r = this.marks.toggle(c, ch.def.marks);
+        if (r === "placed") {
+          this.marksPlaced++;
+          this.events.push({ t: "MarkPlaced", x: c.x, z: c.z, void: !this.grid.has(c.x, c.z), onForbidden: this.cubeAt(c)?.type === "forbidden" });
+        } else if (r === "removed") this.events.push({ t: "MarkRemoved", x: c.x, z: c.z });
+      }
+    }
+    if (!input.detonate) return;
+    // one Detonate: marks + armed Glyph Blasts resolve together
+    const fired = this.marks.take();
+    this.events.push({ t: "Detonate", marks: fired.length });
+    const hit = new Set<number>();
+    for (const m of fired) {
+      const c = this.cubeAt(m);
+      if (c) hit.add(c.id);
+      else this.events.push({ t: "Miss", x: m.x, z: m.z });
+    }
+    ch.glyphs.forEach((g, i) => {
+      if (!ch.armed[i]) return;
+      this.events.push({ t: "Blast", x: g.x, z: g.z, w: 3, h: 3 });
+      for (const c of this.cubes.alive()) if (Math.abs(c.x - g.x) <= 1 && Math.abs(c.z - g.z) <= 1) hit.add(c.id);
+    });
+    let forbiddenKilled = false;
+    const kills: Cube[] = [];
+    for (const id of hit) {
+      const c = this.cubes.byId(id);
+      if (!c) continue;
+      if (c.type === "forbidden") forbiddenKilled = true;
+      kills.push(c);
+    }
+    // Chamber kills: no chain multiplier, no Scar/crumble for a Forbidden ("failure → no penalty")
+    for (const c of kills) {
+      const cell = { x: c.x, z: c.z };
+      this.cubes.kill(c);
+      this.kills++;
+      this.events.push({ t: "Kill", id: c.id, type: c.type, x: cell.x, z: cell.z, chain: 1, index: 0, blast: false, points: c.type === "forbidden" ? 0 : TUNING.score.stone });
+      if (c.type !== "forbidden") {
+        this.score.add(TUNING.score.stone, "chamber kill", this.events);
+        this.spawnTile(cell, "ground", null);
+      }
+    }
+    const standardsLeft = ch.cubes.some((id) => {
+      const c = this.cubes.byId(id);
+      return c && c.type !== "forbidden";
+    });
+    const won = !standardsLeft && !forbiddenKilled;
+    ch.result = won ? "won" : "lost";
+    for (const id of ch.cubes) {
+      const c = this.cubes.byId(id);
+      if (c) this.cubes.kill(c); // survivors dissolve when time resumes
+    }
+    if (won) {
+      this.chambersWon++;
+      this.score.add(TUNING.score.chamber, "chamber", this.events);
+      this.events.push({ t: "Announce", line: "beautiful" });
+    }
+    this.events.push({ t: "ChamberEnd", won });
+    this.chamber = null;
+    this.offerRunes(won);
   }
 
   pendingPicks = 0;
@@ -997,6 +1128,7 @@ export class World {
       this.grid.serialize(), this.cubes.serialize(), this.player.serialize(), this.marks.serialize(),
       this.score.serialize(), this.run.serialize(), this.crumble.serialize(), this.beacons.serialize(),
       this.lastStand.active ? this.lastStand.frames : -1, this.outcome?.kind ?? "-",
+      this.chamber ? `${this.chamber.def.id}:${this.chamber.armed.map((a) => (a ? 1 : 0)).join("")}` : "-",
       JSON.stringify(this.rng.states())
     ].join("|");
   }

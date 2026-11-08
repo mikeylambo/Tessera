@@ -183,6 +183,50 @@ try {
     await page.close();
   }
 
+  // ── 3c: Chamber (every 4th Sector) ──────────────────────────────────────
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const errors = watch(page);
+    await page.goto(`${BASE}?quick&sector=4&seed=5`);
+    await waitFor(page, () => window.__GAME?.state().phase === "playing");
+    const reached = await page.evaluate(() => {
+      const g = window.__GAME;
+      g.manual(true);
+      g.godMode(true); // this step tests the Chamber, not survival
+      g.bot.start("expert");
+      for (let i = 0; i < 400; i++) {
+        g.stepFrames(30);
+        if (g.state().chamber) return true;
+      }
+      return false;
+    });
+    check(reached, "Endless reaches a Chamber after Sector 4");
+    await page.evaluate(() => {
+      const g = window.__GAME;
+      g.bot.stop();
+      g.input({ pick: 0 }); // arm Glyph 1 through the input path
+      g.manual(false);
+    });
+    await sleep(4000); // let the catch-up effects from bulk stepping settle (presentation time)
+    const hud = await page.evaluate(() => document.querySelector(".t-chamber.on") !== null && document.querySelectorAll(".t-chamber button").length);
+    check(hud >= 1, `Chamber HUD shows marks + Glyph buttons (${hud})`);
+    await page.screenshot({ path: `${OUT}/11-chamber.png` });
+    const after = await page.evaluate(() => {
+      const g = window.__GAME;
+      g.manual(true);
+      g.bot.start("expert");
+      for (let i = 0; i < 60 && g.state().chamber; i++) g.stepFrames(5);
+      g.bot.stop();
+      return { chamber: g.state().chamber, won: g.state().chambersWon, phase: g.state().phase };
+    });
+    check(!after.chamber && after.won === 1, `Chamber solved (won ${after.won})`);
+    await sleep(600);
+    check(after.phase === "runes", `Chamber → Rune pick (${after.phase})`);
+    await page.screenshot({ path: `${OUT}/12-rune-pick.png` });
+    check(errors.length === 0, `zero console errors through Chamber (${errors.slice(0, 3).join(" | ")})`);
+    await page.close();
+  }
+
   // ── 3b: shell tuning panel (dev only) ─────────────────────────────────
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });

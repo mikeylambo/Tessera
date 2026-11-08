@@ -117,6 +117,8 @@ export class OverlayView {
   private exit: THREE.Mesh | null = null;
   private fizzles: MarkView[] = [];
   private t = 0;
+  private chamberGlyphs: THREE.Mesh[] = [];
+  private chamberAreas: THREE.Mesh[] = [];
   ghostDone = new Set<string>();
   ghostsEnabled = true;
 
@@ -217,6 +219,30 @@ export class OverlayView {
       const p = 0.5 + 0.5 * Math.sin(this.t * 4);
       (g.material as THREE.MeshBasicMaterial).opacity = 0.18 + 0.4 * p;
       g.scale.setScalar(0.9 + 0.12 * p);
+    });
+
+    // Chamber Glyph sigils (Blast centres on the void lattice) + armed 3×3 preview
+    const ch = w.chamber;
+    const n = ch ? ch.glyphs.length : 0;
+    while (this.chamberGlyphs.length < n) {
+      const g = new THREE.Mesh(this.sigilGeo, this.sigilMaterial(PALETTE.advantage, 2.2));
+      const a = new THREE.Mesh(new THREE.PlaneGeometry(TILE * 3, TILE * 3).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.advantage).multiplyScalar(0.6), transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      g.renderOrder = 6;
+      this.group.add(g, a);
+      this.chamberGlyphs.push(g);
+      this.chamberAreas.push(a);
+    }
+    this.chamberGlyphs.forEach((g, i) => {
+      const a = this.chamberAreas[i]!;
+      const gl = ch?.glyphs[i];
+      g.visible = !!gl;
+      a.visible = !!gl && !!ch?.armed[i];
+      if (!gl) return;
+      g.position.set(wx(gl.x), 0.05, wz(gl.z));
+      g.rotation.y = Math.PI / 4;
+      const armed = !!ch!.armed[i];
+      (g.material as THREE.MeshBasicMaterial).color.setHex(PALETTE.advantage).multiplyScalar(armed ? 3.2 : 1.1 + 0.4 * Math.sin(this.t * 3 + i));
+      a.position.set(wx(gl.x), 0.04, wz(gl.z));
     });
 
     // beacons

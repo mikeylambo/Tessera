@@ -2,6 +2,7 @@ import { World } from "../sim/World";
 import { Cubes } from "../sim/Cubes";
 import { isStandard, NO_INPUT, type Cell, type Dir, type FrameInput } from "../sim/types";
 import { DeterministicRng } from "@slu/web-shell";
+import { chamberPlan } from "../data/chambers";
 
 export type BotLevel = "novice" | "competent" | "expert";
 
@@ -24,6 +25,7 @@ export class Bot {
   think(w: World): FrameInput {
     const input: FrameInput = { ...NO_INPUT };
     if (w.runeOffers) return { ...input, pick: 0 };
+    if (w.chamber) return this.chamber(w);
     if (w.outcome || !w.player.alive) return input;
     if (this.cooldown > 0) this.cooldown--;
 
@@ -136,6 +138,23 @@ export class Bot {
     const dir = this.firstStep(w, target);
     if (dir) return { ...input, press: dir };
     return input;
+  }
+
+  /** Chamber: solve exactly (exhaustive), arm the Glyph set, mark the rest, one Detonate. Novice guesses. */
+  private chamber(w: World): FrameInput {
+    const ch = w.chamber!;
+    if (this.cooldown > 0) {
+      this.cooldown--;
+      return { ...NO_INPUT };
+    }
+    this.cooldown = 3;
+    const plan = this.level === "novice" ? { mask: (1 << ch.glyphs.length) - 1, marks: [] } : chamberPlan(ch.def);
+    if (!plan) return { ...NO_INPUT, detonate: true };
+    const wrong = ch.armed.findIndex((a, i) => a !== !!(plan.mask & (1 << i)));
+    if (wrong >= 0) return { ...NO_INPUT, pick: wrong };
+    const todo = plan.marks.map((c) => ({ x: c.x, z: ch.z0 + c.row })).find((c) => !w.marks.has(c));
+    if (todo) return { ...NO_INPUT, mark: todo };
+    return { ...NO_INPUT, detonate: true };
   }
 
   /** Lane danger: a cube rolls down its whole column, so every cell below an approaching cube is in its path. */

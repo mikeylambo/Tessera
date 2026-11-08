@@ -57,6 +57,8 @@ export function installGameApi(game: Game): void {
         lastStand: w.lastStand.active,
         outcome: w.outcome,
         runeOffers: w.runeOffers,
+        chamber: w.chamber ? { id: w.chamber.def.id, armed: w.chamber.armed, marks: w.chamber.def.marks } : null,
+        chambersWon: w.chambersWon,
         ended: w.ended
       };
     },

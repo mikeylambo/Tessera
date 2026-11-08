@@ -48,7 +48,7 @@ describe("fairness plan search", () => {
       for (let i = 0; i < 60 * 60 * 6 && !w.ended; i++) {
         const before = w.lastFairness;
         w.step(w.runeOffers ? { held: 0, press: 0, mark: null, detonate: false, blast: false, pick: 0 } : bot.think(w));
-        if (w.lastFairness && w.lastFairness !== before) {
+        if (w.lastFairness && w.lastFairness !== before && w.lastFairness.reason !== "deferred") {
           spawned++;
           if (!w.lastFairness.fair) unfair++;
         }

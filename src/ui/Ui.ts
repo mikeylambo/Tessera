@@ -74,6 +74,11 @@ const CSS = /* css */ `
 .t-replay .why { color:rgba(233,227,216,0.8); letter-spacing:0.22em; text-transform:uppercase; font-size:12px; }
 .t-overlay { position:absolute; right:12px; top:12px; color:#9fd; font-size:11px; white-space:pre; text-align:right; opacity:0.8; }
 .hc .t-item { border-color:rgba(233,227,216,0.6); }
+.t-chamber { position:absolute; left:50%; bottom:max(18px, env(safe-area-inset-bottom)); transform:translateX(-50%); display:none; gap:10px; align-items:center; pointer-events:auto; }
+.t-chamber.on { display:flex; }
+.t-chamber .marks { color:var(--amber); letter-spacing:0.2em; margin-right:8px; font-size:13px; }
+.t-chamber button { width:52px; height:52px; border:1px solid rgba(47,211,138,0.45); background:rgba(10,11,14,0.55); color:var(--emerald); font:inherit; font-size:12px; }
+.t-chamber button[data-armed="1"] { background:rgba(47,211,138,0.22); border-color:var(--emerald); }
 @media (max-width: 640px) { .t-score { top:auto; bottom:max(14px, env(safe-area-inset-bottom)); left:max(16px, env(safe-area-inset-left)); transform:none; font-size:calc(16px * var(--ui-scale)); } .t-runes { bottom:max(44px, calc(env(safe-area-inset-bottom) + 30px)); } }
 `;
 
@@ -93,6 +98,8 @@ export class Ui {
   readonly blastBtn: HTMLButtonElement;
   readonly detBtn: HTMLButtonElement;
   private overlayEl: HTMLElement;
+  readonly chamberEl: HTMLElement;
+  onGlyph: (i: number) => void = () => {};
   private subTimer = 0;
   private lastSub = -1e9;
   private padPrev: boolean[] = [];
@@ -114,6 +121,7 @@ export class Ui {
     this.blastBtn = this.el("button", "t-btn small", this.touch) as HTMLButtonElement;
     this.detBtn = this.el("button", "t-btn", this.touch) as HTMLButtonElement;
     this.detBtn.innerHTML = "◈<span style='font-size:9px;margin-top:4px'>DETONATE</span>";
+    this.chamberEl = this.el("div", "t-chamber", this.hud);
     this.hud.style.display = "none";
     root.appendChild(this.hud);
     window.addEventListener("keydown", this.onKey);
@@ -292,6 +300,23 @@ export class Ui {
     clearTimeout(this.subTimer);
     this.subTimer = window.setTimeout(() => this.subEl.classList.remove("on"), 2200);
     return true;
+  }
+
+  /** Chamber HUD: marks left + one button per Glyph (keys 1–3, tap, or gamepad Y). Hidden when `state` is null. */
+  chamber(state: { marksLeft: number; armed: boolean[] } | null): void {
+    this.chamberEl.classList.toggle("on", !!state);
+    if (!state) return;
+    const sig = `${state.marksLeft}|${state.armed.join(",")}`;
+    if (this.chamberEl.dataset.sig === sig) return;
+    this.chamberEl.dataset.sig = sig;
+    this.chamberEl.innerHTML = `<span class="marks">◈ ${state.marksLeft}</span>` + state.armed.map((a, i) => `<button data-i="${i}" data-armed="${a ? 1 : 0}">◆${i + 1}</button>`).join("");
+    this.chamberEl.querySelectorAll("button").forEach((b) =>
+      b.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.onGlyph(Number((b as HTMLElement).dataset.i));
+      })
+    );
   }
 
   notice(text: string): void {
