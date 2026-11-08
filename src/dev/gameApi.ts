@@ -92,6 +92,7 @@ export function installGameApi(game: Game): void {
     },
     cellToScreen: (x: number, z: number) => game.view.cellToScreen(x, z, window.innerWidth, window.innerHeight),
     pickRune: (i: number) => game.pickRune(i),
+    shareCard: () => game.shareCard()?.toDataURL("image/png") ?? null,
     pause: () => game.pause(),
     resume: () => game.resume(),
     skipReplay: () => game.skipReplay(),

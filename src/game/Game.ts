@@ -12,7 +12,8 @@ import { Music } from "../audio/Music";
 import { Sfx } from "../audio/Sfx";
 import { Ui, type MenuItem } from "../ui/Ui";
 import { ProfileStore, type TesseraSettings } from "../platform/web/profile";
-import { BrowserHaptics } from "@slu/web-shell";
+import { BrowserHaptics, BrowserShare } from "@slu/web-shell";
+import { renderShareCard, canvasToFile } from "../ui/ShareCard";
 import { Bot, type BotLevel } from "../dev/bot";
 
 export type Phase = "boot" | "title" | "menu" | "playing" | "paused" | "runes" | "replay" | "results";
@@ -78,6 +79,9 @@ export class Game {
   /** Paused externally for deterministic stepping (window.__GAME.stepFrames). */
   manual = false;
   lastEvents: SimEvent[] = [];
+  /** Every cell the run has held ground on (share card silhouette; presentation-side). */
+  trail = new Map<number, { x: number; z: number }>();
+  private readonly sharer = new BrowserShare();
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement, flags: UrlFlags) {
     this.flags = flags;
@@ -225,6 +229,7 @@ export class Game {
     this.sfx.handle(events, { frame: w.frame, alpha: this.alpha, f: w.f, tickLen: w.tickLen });
     const s = this.profile.settings.snapshot();
     for (const e of events) {
+      if (e.t === "TileRise") this.trail.set(e.z * 8 + e.x, { x: e.x, z: e.z });
       if (e.t === "Announce") {
         this.ui.subtitle(LINES[e.line], s.subtitles, e.line === "again");
       } else if (e.t === "CubeSpawn" && e.id && events.indexOf(e) === events.findIndex((x) => x.t === "CubeSpawn")) this.formationsSeen++;
@@ -285,6 +290,7 @@ export class Game {
     this.world = new World(config);
     this.view.attach(this.world);
     this.recorder.reset();
+    this.trail = new Map(this.world.grid.list().map((t) => [t.z * 8 + t.x, { x: t.x, z: t.z }]));
     this.formationsSeen = 0;
     this.stepsThisRun = 0;
     this.acc = 0;
@@ -791,10 +797,34 @@ export class Game {
       id: "results",
       title: w.config.mode === "daily" ? `DAILY · ${String(w.config.seed).replace("DAILY-", "")}` : "THE FALL",
       body: `<div class="t-lead">${best}</div>${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 1 ? [["Best chain", w.score.bestChain] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${w.config.mode === "daily" && this.ranked ? `<div class="t-sub">Ranked attempt recorded · leaderboard offline</div>` : ""}`,
-      items: [{ id: "retry", label: "Retry" }, { id: "menu", label: "Menu" }],
-      onPick: (id) => (id === "retry" ? this.retry() : this.showMenu()),
+      items: [{ id: "retry", label: "Retry" }, { id: "share", label: "Share" }, { id: "menu", label: "Menu" }],
+      onPick: (id) => (id === "retry" ? this.retry() : id === "share" ? void this.share() : this.showMenu()),
       onBack: () => this.showMenu()
     });
+  }
+
+  /** The run's share card (Daily: date; Endless: depth). */
+  shareCard(): HTMLCanvasElement | null {
+    const w = this.world;
+    if (!w) return null;
+    const label = w.config.mode === "daily" ? `Daily · ${String(w.config.seed).replace("DAILY-", "")}` : `Endless · Sector ${w.sector}`;
+    return renderShareCard({ cells: [...this.trail.values()], depth: w.depthRow, score: w.score.total, label });
+  }
+
+  private async share(): Promise<void> {
+    const card = this.shareCard();
+    const w = this.world;
+    if (!card || !w) return;
+    const file = await canvasToFile(card, "tessera.png");
+    const r = await this.sharer.share({ title: "Tessera", text: `TESSERA · depth ${w.depthRow} · ${w.score.total.toLocaleString("en-US")}`, files: file ? [file] : [] });
+    if (!r.shared && file) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(file);
+      a.download = "tessera.png";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+    this.ui.notice(r.method === "native" ? "Shared." : "Card saved.");
   }
 
   retry(): void {

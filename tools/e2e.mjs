@@ -8,6 +8,7 @@
  * Screenshots land in artifacts/e2e/.
  */
 import { spawn } from "node:child_process";
+import { Buffer } from "node:buffer";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 
@@ -215,7 +216,7 @@ try {
       const g = window.__GAME;
       g.manual(true);
       g.bot.start("expert");
-      for (let i = 0; i < 60 && g.state().chamber; i++) g.stepFrames(5);
+      for (let i = 0; i < 400 && g.state().chamber; i++) g.stepFrames(1);
       g.bot.stop();
       return { chamber: g.state().chamber, won: g.state().chambersWon, phase: g.state().phase };
     });
@@ -225,6 +226,32 @@ try {
     await page.screenshot({ path: `${OUT}/12-rune-pick.png` });
     check(errors.length === 0, `zero console errors through Chamber (${errors.slice(0, 3).join(" | ")})`);
     await page.close();
+  }
+
+  // ── 3d: Daily share card — same seed, two players, two different silhouettes (GDD §18, §43.3) ──
+  {
+    const cards = [];
+    for (const level of ["competent", "expert"]) {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      const errors = watch(page);
+      await page.goto(`${BASE}?daily=2026-11-08`);
+      await waitFor(page, () => window.__GAME?.state().phase === "playing" && window.__GAME.state().mode === "daily");
+      await page.evaluate((lvl) => {
+        const g = window.__GAME;
+        g.manual(true);
+        g.bot.start(lvl);
+        g.stepFrames(60 * 60 * 2);
+        g.bot.stop();
+      }, level);
+      const url = await page.evaluate(() => window.__GAME.shareCard());
+      check(typeof url === "string" && url.startsWith("data:image/png") && url.length > 5000, `${level}: share card renders (${url ? url.length : 0} bytes)`);
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(`${OUT}/13-share-card-${level}.png`, Buffer.from(url.split(",")[1], "base64"));
+      cards.push(url);
+      check(errors.length === 0, `${level}: zero console errors in Daily (${errors.slice(0, 3).join(" | ")})`);
+      await page.close();
+    }
+    check(cards[0] !== cards[1], "two players on the same Daily get different cards");
   }
 
   // ── 3b: shell tuning panel (dev only) ─────────────────────────────────
