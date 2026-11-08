@@ -302,7 +302,7 @@ export class Game {
 
   startEndless(sector = 1, seed?: string): void {
     const s = seed ?? `${Date.now() % 1e9}`;
-    this.begin({ mode: "endless", seed: s, sector, assist: this.profile.settings.snapshot().assistSpeed });
+    this.begin({ mode: "endless", seed: s, sector, assist: this.profile.settings.snapshot().assistSpeed, unlockedAct: this.actsCleared() });
   }
 
   startDaily(day = utcDay(), allowRanked = true): void {
@@ -570,6 +570,14 @@ export class Game {
         else if (id === "credits") this.showCredits();
       }
     });
+  }
+
+  /** Highest Hundred act fully cleared (≥ 1 once Endless is open; ?quick / dev runs see everything). */
+  actsCleared(): number {
+    if (this.flags.quick || this.flags.sector) return 5;
+    let act = 1;
+    for (const a of ACTS) if (STAGES.filter((s) => s.id >= a.first && s.id <= a.last).every((s) => this.profile.data.hundred[s.id] || this.profile.data.skipped.includes(s.id))) act = a.act;
+    return act;
   }
 
   /** Stage n is open when n = 1 or stage n − 1 was cleared or skipped (sequential unlock, GDD §18). */

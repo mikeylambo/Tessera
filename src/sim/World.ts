@@ -25,6 +25,11 @@ export interface WorldConfig {
   stage?: StageDef;
   /** Assist speed: tick +15% (scores flagged). */
   assist?: boolean;
+  /**
+   * Highest Hundred act cleared (Endless only; GDD §17 "each cleared act adds its cubes to Endless bands").
+   * Cube types from later acts spawn as Stone. Daily and omitted = 5 (everything, same board for everyone).
+   */
+  unlockedAct?: number;
 }
 
 export type Outcome =
@@ -764,6 +769,7 @@ export class World {
       const def = this.pickFormation();
       const rows = this.spawnFormation(def.rows, plan.id);
       plan.spawned++;
+      this.scheduleSkyfall(plan.id);
       plan.nextSpawnTick = this.tick + rows + BAND_GAP[bandForSector(plan.id)];
     }
     if (plan.beaconTicks.length && this.tick >= plan.beaconTicks[0]!) {
@@ -794,15 +800,57 @@ export class World {
     const mirror = this.rng.stream("mirror");
     for (let attempt = 0; attempt <= TUNING.sector.fairnessRerolls; attempt++) {
       const def = rng.pick(pool);
-      const rows = mirror.chance(0.5) ? def.rows.map(mirrorRow) : [...def.rows];
+      const rows = this.gateRows(mirror.chance(0.5) ? def.rows.map(mirrorRow) : [...def.rows]);
       const res = this.fairness(rows);
       this.lastFairness = { id: def.id, fair: res.fair, reason: res.reason, attempts: attempt + 1 };
       if (res.fair) return { ...def, rows };
     }
-    const fb = FORMATIONS.find((x) => x.id === FALLBACK[band])!;
+    const fbDef = FORMATIONS.find((x) => x.id === FALLBACK[band])!;
+    const fb = { ...fbDef, rows: this.gateRows(fbDef.rows) };
     const fbRes = this.fairness(fb.rows);
     this.lastFairness = { id: fb.id, fair: fbRes.fair, reason: `fallback:${fbRes.reason}`, attempts: TUNING.sector.fairnessRerolls + 1 };
     return fb;
+  }
+
+  /** Cube types the player hasn't met in The Hundred yet appear as Stone (Act II: F A · III: G I + Skyfall · IV: P). */
+  private gateRows(rows: readonly string[]): string[] {
+    const act = this.config.mode === "endless" ? (this.config.unlockedAct ?? 5) : 5;
+    const allowed = new Set(["S", ...(act >= 2 ? ["F", "A"] : []), ...(act >= 3 ? ["G", "I"] : []), ...(act >= 4 ? ["P"] : [])]);
+    return rows.map((r) => [...r].map((ch) => (ch === "." || allowed.has(ch) ? ch : "S")).join(""));
+  }
+
+  /** Skyfall per formation (GDD §19): from Sector 6 one per formation; beyond 10, +1 every 3 Sectors (max 4). */
+  private scheduleSkyfall(wave: number): void {
+    const act = this.config.mode === "endless" ? (this.config.unlockedAct ?? 5) : 5;
+    if (act < 3 || this.sector < 6) return;
+    const count = this.sector < 10 ? 1 : Math.min(4, 1 + Math.floor((this.sector - 10) / 3));
+    const rng = this.rng.stream("skyfall");
+    const conn = this.connected();
+    let front = -Infinity;
+    for (const t of conn) front = Math.max(front, t.z);
+    if (!Number.isFinite(front)) return;
+    const landTick = this.tick + TUNING.skyfall.telegraphTicks;
+    // predicted cube cells at landing (kills only remove cubes, so this is conservative)
+    const occupied = new Set<number>();
+    for (const c of this.cubes.alive()) {
+      if (c.landTick >= 0) {
+        occupied.add(c.landTick * 1e4 + c.z * 8 + c.x);
+        continue;
+      }
+      const rolls = Math.max(0, TUNING.skyfall.telegraphTicks - (c.age >= 1 ? 0 : 1));
+      occupied.add(landTick * 1e4 + (c.z - rolls) * 8 + c.x);
+    }
+    for (let n = 0; n < count; n++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const x = rng.int(0, TUNING.grid.columns - 1);
+        const z = front + rng.int(-1, 4);
+        const k = landTick * 1e4 + z * 8 + x;
+        if (occupied.has(k) || this.grid.isScar(x, z)) continue;
+        occupied.add(k);
+        this.spawnSkyfall(rng.chance(0.75) ? "stone" : rng.pick(["glass", "advantage"] as const), x, z, wave);
+        break;
+      }
+    }
   }
 
   /** Fairness of a formation spawned now (Design Law 5): cheap necessary conditions, then the plan search. */

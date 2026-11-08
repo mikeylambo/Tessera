@@ -11,6 +11,12 @@ describe("invariants hold every frame", () => {
       });
     }
   }
+  for (const sector of [6, 10]) {
+    it(`expert bot from Sector ${sector} (Skyfall, Phase, Iron, Glass)`, () => {
+      const r = runBot({ mode: "endless", seed: 3, sector }, "expert", 9000, true);
+      expect(r.violations.slice(0, 5)).toEqual([]);
+    });
+  }
   it("hundred stages (competent bot)", () => {
     for (const stage of STAGES) {
       const r = runBot({ mode: "hundred", seed: 1, stage }, "competent", 6000, true);

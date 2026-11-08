@@ -3,6 +3,7 @@ import { World } from "../src/sim/World";
 import { TUNING } from "../src/data/tuning";
 import { input, idle, until } from "./helpers";
 import { checkFormation } from "../src/sim/Fairness";
+import { Bot } from "../src/dev/bot";
 
 const sandbox = () => new World({ mode: "sandbox", seed: 1 });
 
@@ -207,5 +208,42 @@ describe("core rules", () => {
     expect(checkFormation({ rows: ["FFFFFFF"], connected: all, reach: 3, maxMarks: 2, tickLen: 72 }).fair).toBe(false);
     expect(checkFormation({ rows: ["......S"], connected: [{ x: 0, z: 0 }], reach: 3, maxMarks: 2, tickLen: 72 }).fair).toBe(false);
     expect(checkFormation({ rows: ["S.F.S.."], connected: all, reach: 3, maxMarks: 2, tickLen: 72 }).fair).toBe(true);
+  });
+});
+
+describe("Endless completion", () => {
+  it("act gating: before an act is cleared its cube types spawn as Stone", () => {
+    const w = new World({ mode: "endless", seed: 4, unlockedAct: 1 });
+    const types = new Set<string>();
+    for (let i = 0; i < 60 * 60 * 3 && !w.ended; i++) {
+      w.step(input());
+      for (const e of w.events.drain()) if (e.t === "CubeSpawn") types.add(e.type);
+    }
+    expect([...types]).toEqual(["stone"]);
+  });
+  it("Skyfall arrives from Sector 6, telegraphed 2 ticks, never on a cube", () => {
+    const w = new World({ mode: "endless", seed: 8, sector: 6 });
+    const bot = new Bot("expert", 8);
+    let warns = 0;
+    let lands = 0;
+    let shatters = 0;
+    const warnTick = new Map<number, number>();
+    for (let i = 0; i < 60 * 60 * 3 && !w.ended; i++) {
+      w.step(bot.think(w));
+      for (const e of w.events.drain()) {
+        if (e.t === "SkyfallWarn") {
+          warns++;
+          warnTick.set(e.id, w.tick);
+        }
+        if (e.t === "SkyfallLand") {
+          lands++;
+          expect(w.tick - warnTick.get(e.id)!).toBe(TUNING.skyfall.telegraphTicks);
+        }
+        if (e.t === "SkyfallShatter") shatters++;
+      }
+    }
+    expect(warns).toBeGreaterThan(2);
+    expect(lands).toBeGreaterThan(2);
+    expect(shatters).toBe(0);
   });
 });
