@@ -57,6 +57,7 @@ export class WorldView {
 
   attach(world: World): void {
     this.world = world;
+    this.lattice.minRow = -1e6;
     this.overlay.reset();
     this.invert = this.invertTarget = 0;
     this.feel.hold = false;
@@ -144,6 +145,11 @@ export class WorldView {
           break;
         case "Fall":
           this.feel.hold = true;
+          break;
+        case "Turn":
+          this.lattice.minRow = e.edgeZ;
+          this.cubes.departingFall();
+          this.feel.impact("tessera.heavy", this.pos(w.player.x, w.player.z, 0));
           break;
         case "ChamberStart":
           this.feel.extraUp = 12; // GDD §15: Chamber rises toward a near top-down view (~57° pitch)

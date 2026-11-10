@@ -247,3 +247,41 @@ describe("Endless completion", () => {
     expect(shatters).toBe(0);
   });
 });
+
+describe("The Turn (Act VI prototype)", () => {
+  it("warns a tick ahead; rotates 90° about the front edge: ledge kept, the rest becomes wall, departing cubes fall, ticks hold 60 f", async () => {
+    const { stageById } = await import("../src/data/hundred");
+    const stage = stageById(81)!;
+    const w = new World({ mode: "hundred", seed: "t", stage });
+    const bot = new Bot("expert", 1);
+    let warnTick = -1;
+    let turn: { edgeZ: number; walls: number } | null = null;
+    let tickAtTurn = -1;
+    let framesHeld = 0;
+    for (let i = 0; i < 60 * 40 && !turn; i++) {
+      w.step(bot.think(w));
+      for (const e of w.events.drain()) {
+        if (e.t === "TurnWarn") warnTick = w.tick;
+        if (e.t === "Turn") {
+          turn = { edgeZ: e.edgeZ, walls: e.walls.length };
+          tickAtTurn = w.tick;
+        }
+      }
+    }
+    expect(turn).not.toBeNull();
+    expect(tickAtTurn - warnTick).toBe(1);
+    expect(turn!.walls).toBeGreaterThan(0);
+    // only the ledge row remains walkable, the figure stands on it, no cube remains on the departing face
+    expect(w.grid.list().every((t) => t.z >= turn!.edgeZ)).toBe(true);
+    expect(w.player.z).toBe(turn!.edgeZ);
+    expect(w.grid.has(w.player.x, w.player.z)).toBe(true);
+    expect(w.cubes.alive().every((c) => c.z > turn!.edgeZ)).toBe(true);
+    while (w.turning > 0) {
+      w.step(input({ press: 1, mark: { x: 3, z: turn!.edgeZ + 1 } }));
+      framesHeld++;
+      expect(w.tick).toBe(tickAtTurn);
+    }
+    expect(framesHeld).toBe(TUNING.turn.frames);
+    expect(w.marks.count).toBe(0); // input ignored while the construct turns
+  });
+});

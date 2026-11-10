@@ -203,6 +203,11 @@ export class World {
       this.chamberStep(input);
       return;
     }
+    if (this.turning > 0) {
+      // the construct is rotating (60 f between ticks): ticks, input and Crumble hold (GDD §18 Act VI)
+      if (--this.turning === 0) this.events.push({ t: "TurnEnd" });
+      return;
+    }
 
     if (this.outcome) {
       this.player.update(0, 0, this.moveCtx, this.events);
@@ -1076,6 +1081,13 @@ export class World {
   private stageTick(): void {
     const s = this.config.stage;
     if (!s) return;
+    if (s.turns?.includes(this.tick)) this.beginTurn();
+    else if (s.turns?.includes(this.tick + 1)) {
+      // Design Law 2: the Turn is announced a full tick ahead
+      let edge = -Infinity;
+      for (const t of this.connected()) edge = Math.max(edge, t.z);
+      if (Number.isFinite(edge)) this.events.push({ t: "TurnWarn", edgeZ: edge, frames: this.tickLen });
+    }
     while (this.stageWaveIdx < s.waves.length && s.waves[this.stageWaveIdx]!.at <= this.tick) {
       const w = s.waves[this.stageWaveIdx++]!;
       this.spawnFormation(w.rows, 1, w.z);
@@ -1091,6 +1103,47 @@ export class World {
       const beacon = this.beacons.spawn(b.x, b.z);
       this.events.push({ t: "BeaconSpawn", id: beacon.id, x: b.x, z: b.z });
     }
+  }
+
+  // ───────────────────────────────── The Turn (Act VI prototype) ─────────────────────────────────
+
+  /** Frames left in the current Turn rotation. */
+  turning = 0;
+  turnsDone = 0;
+
+  /**
+   * The construct rotates 90° about the front edge of the connected ground: the front row stays as a ledge (the rear
+   * edge of the new face), everything behind it becomes a wall (no longer walkable), cubes on the departing face fall
+   * (no penalty), and the figure lands on the ledge.
+   */
+  private beginTurn(): void {
+    const conn = this.connected();
+    if (!conn.length) return;
+    let edge = -Infinity;
+    for (const t of conn) edge = Math.max(edge, t.z);
+    const walls: Array<{ x: number; z: number }> = [];
+    for (const t of this.grid.list()) {
+      if (t.z >= edge) continue;
+      this.grid.remove(t.x, t.z);
+      walls.push({ x: t.x, z: t.z });
+    }
+    this.run.glyphs = this.run.glyphs.filter((g) => this.grid.has(g.x, g.z));
+    for (const c of this.cubes.alive()) if (c.z <= edge) this.cubes.kill(c);
+    this.marks.clear();
+    const p = this.player;
+    if (p.z !== edge || !this.grid.has(p.x, p.z)) {
+      const ledge = this.grid.row(edge).sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+      if (ledge) {
+        p.fromX = p.x = ledge.x;
+        p.fromZ = p.z = ledge.z;
+        p.state = "idle";
+        p.t = 0;
+      }
+    }
+    this.crumble.counter = 0;
+    this.turning = TUNING.turn.frames;
+    this.turnsDone++;
+    this.events.push({ t: "Turn", edgeZ: edge, walls, frames: TUNING.turn.frames });
   }
 
   get stageWavesDone(): boolean {
@@ -1129,6 +1182,7 @@ export class World {
       this.score.serialize(), this.run.serialize(), this.crumble.serialize(), this.beacons.serialize(),
       this.lastStand.active ? this.lastStand.frames : -1, this.outcome?.kind ?? "-",
       this.chamber ? `${this.chamber.def.id}:${this.chamber.armed.map((a) => (a ? 1 : 0)).join("")}` : "-",
+      this.turning,
       JSON.stringify(this.rng.states())
     ].join("|");
   }

@@ -42,6 +42,9 @@ export type SimEvent =
   | { t: "ChamberStart"; id: string; marks: number; glyphs: number }
   | { t: "ChamberGlyph"; index: number; armed: boolean }
   | { t: "ChamberEnd"; won: boolean }
+  | { t: "Turn"; edgeZ: number; walls: Array<{ x: number; z: number }>; frames: number }
+  | { t: "TurnEnd" }
+  | { t: "TurnWarn"; edgeZ: number; frames: number }
   | { t: "SectorClear"; sector: number; perfect: boolean }
   | { t: "Score"; amount: number; total: number; reason: string }
   | { t: "Fall"; x: number; z: number; cause: FallCause }

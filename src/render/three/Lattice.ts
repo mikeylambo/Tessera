@@ -36,6 +36,7 @@ export class LatticeView {
         uLattice: { value: new THREE.Color(PALETTE.lattice) },
         uWarm: { value: new THREE.Color(PALETTE.mark) },
         uInvert: { value: 0 },
+        uMinRow: { value: -1e6 },
         fogColor: { value: new THREE.Color(PALETTE.fog) },
         fogDensity: { value: 0.022 }
       },
@@ -49,7 +50,7 @@ export class LatticeView {
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */ `
-        uniform sampler2D uOcc; uniform float uBase; uniform vec2 uPlayer; uniform float uReach; uniform float uTime;
+        uniform sampler2D uOcc; uniform float uBase; uniform vec2 uPlayer; uniform float uReach; uniform float uTime; uniform float uMinRow;
         uniform vec3 uLattice; uniform vec3 uWarm; uniform vec3 fogColor; uniform float fogDensity; uniform float uInvert;
         varying vec3 vWorld; varying float vFogDepth;
         void main() {
@@ -57,6 +58,7 @@ export class LatticeView {
           float cz = -vWorld.z / ${TILE.toFixed(1)};
           vec2 cell = floor(vec2(cx, cz) + 0.5);
           if (cell.x < 0.0 || cell.x > ${(COLS - 1).toFixed(1)}) discard;
+          if (cell.y < uMinRow) discard; // behind a Turn's ledge the old face no longer exists
           vec2 f = abs(fract(vec2(cx, cz) + 0.5) - 0.5); // 0 at centre, 0.5 at edge
           float edge = max(f.x, f.y);
           float occ = texture2D(uOcc, vec2((cell.x + 0.5) / ${COLS.toFixed(1)}, (cell.y - uBase + 0.5) / ${ROWS.toFixed(1)})).r;
@@ -65,9 +67,12 @@ export class LatticeView {
           float line = smoothstep(0.455, 0.49, edge);
           float alpha = line * mix(0.12, 0.3, inReach) * (1.0 - occ);
           // warm rim inside the Reach boundary cells (soft) on void and ground
+          // Reach rim: warm on owned ground; over the void only a faint warm tint on the grid line, so Reach
+          // never reads as ground (GDD §23 value rule: what the player owns is the warm, brightest value)
           float rim = inReach * smoothstep(0.36, 0.48, edge) * (0.22 + 0.06 * sin(uTime * 2.0));
-          vec3 col = mix(uLattice, uWarm, clamp(rim * 3.0, 0.0, 1.0));
-          alpha = max(alpha, rim * (occ > 0.5 ? 0.8 : 1.0));
+          float voidRim = rim * 0.28 * line;
+          vec3 col = mix(uLattice, uWarm, clamp((occ > 0.5 ? rim : voidRim) * 3.0, 0.0, 1.0));
+          alpha = max(alpha, occ > 0.5 ? rim * 0.8 : voidRim);
           float fog = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
           alpha *= 1.0 - fog;
           gl_FragColor = vec4(col, alpha);
@@ -77,6 +82,9 @@ export class LatticeView {
     this.mesh = new THREE.Mesh(geo, this.mat);
     this.mesh.renderOrder = 2;
   }
+
+  /** Rows behind this one are not drawn (set by the Turn). */
+  minRow = -1e6;
 
   update(w: World, focusZ: number, t: number): void {
     const base = Math.floor(focusZ) - 20;
@@ -92,6 +100,7 @@ export class LatticeView {
     u.uPlayer!.value.set(w.player.x, w.player.z);
     u.uReach!.value = w.reach;
     u.uTime!.value = t;
+    u.uMinRow!.value = this.minRow;
     // plane centred on the window; slightly above ground tops so the rim sits on tiles too
     this.mesh.position.set(0, 0.006, wz(base + ROWS / 2 - 0.5));
   }
@@ -275,8 +284,8 @@ export class OverlayView {
     const obj = stage?.objective;
     if (obj?.type === "exit") {
       if (!this.exit) {
-        const geo = new THREE.PlaneGeometry(COLS * TILE, 3.2);
-        geo.translate(0, 1.6, 0);
+        const geo = new THREE.PlaneGeometry(COLS * TILE, 1.6);
+        geo.translate(0, 0.8, 0);
         const mat = new THREE.ShaderMaterial({
           transparent: true,
           depthWrite: false,
@@ -284,7 +293,7 @@ export class OverlayView {
           side: THREE.DoubleSide,
           uniforms: { uT: { value: 0 }, uC: { value: new THREE.Color(PALETTE.beacon) } },
           vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-          fragmentShader: `uniform float uT; uniform vec3 uC; varying vec2 vUv; void main(){ float a = pow(1.0 - vUv.y, 2.2) * (0.55 + 0.15 * sin(uT * 2.0 + vUv.x * 12.0)); gl_FragColor = vec4(uC * 1.6, a); }`
+          fragmentShader: `uniform float uT; uniform vec3 uC; varying vec2 vUv; void main(){ float a = pow(1.0 - vUv.y, 3.0) * (0.22 + 0.08 * sin(uT * 2.0 + vUv.x * 12.0)); gl_FragColor = vec4(uC * 1.2, a); }`
         });
         this.exit = new THREE.Mesh(geo, mat);
         this.group.add(this.exit);

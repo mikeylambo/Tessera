@@ -69,7 +69,7 @@ export const TUNING = {
   skyfall: { telegraphTicks: 2 },
   lastStand: { triggerTiles: 14, durationFrames: 900, purifyTiles: 21, scoreMul: 2 },
   crush: { stunFrames: 18 },
-  camera: { back: 12, up: 14, ahead: 6, aheadFar: 10, damping: 0.12, xFollow: 0.3, fov: 50, portraitPullback: 1.15 },
+  camera: { back: 12, up: 14, ahead: 6, aheadFar: 8, damping: 0.12, xFollow: 0.3, fov: 50, portraitPullback: 1.15 },
   spawn: { distance: 12, liveCap: 35, fadeTicks: 1 },
   sector: {
     formationsMin: 3,
@@ -94,6 +94,8 @@ export const TUNING = {
     depthPerRow: 10,
     chamber: 2500
   },
+  /** Act VI · The Turn: rotation length (GDD §18: "rotates 90° between ticks over 60 f"). */
+  turn: { frames: 60 },
   onboarding: { noFailFrames: 600, ghostRetireSuccesses: 2, hintAfterFailures: 3 }
 } as const;
 

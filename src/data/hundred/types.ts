@@ -43,4 +43,6 @@ export interface StageDef {
   noFail?: number;
   /** Last Stand available (Act IV+). */
   lastStand?: boolean;
+  /** Act VI · The Turn: on these ticks the construct rotates 90° about the front edge of the connected ground. */
+  turns?: number[];
 }

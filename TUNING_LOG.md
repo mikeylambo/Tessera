@@ -12,3 +12,5 @@ Every change to `src/data/tuning.ts` or authored pacing data is logged here with
 ## Balance status
 - **Met:** average connected ground in band (30.1 on seeds 1–8, 30.9 on seeds 9–16; target 28–49) and every seed survives 3 Sectors (16/16). Gate test now requires 8/8.
 - **Watch:** the average sits near the low edge of the band; the lowest single-seed average was ~24. Levers held in reserve, in Michael's order: denser band-1 formations, then spawn distance. Human playtest should confirm before further changes.
+
+| 5 | 2026-11-10 | camera.aheadFar | 10 → 8 units | Turn prototype capture (1280×720): with look-ahead 10 the figure sits ~22° below centre against a 25° half-FOV and is clipped at the frame's bottom edge, breaking GDD §15 camera priority #1 (player cell + Reach). At 8 the figure sits ~17° below centre and the hinged cliff below the ledge is in frame. Geometry: camera 14 up / 18 behind the look target. | Claude |

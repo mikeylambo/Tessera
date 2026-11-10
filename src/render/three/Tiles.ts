@@ -23,6 +23,10 @@ interface TileView {
   crack: number;
   bornFrame: number;
   instant: boolean;
+  /** The Turn: this tile hinges down about the ledge's rear edge and stays as a cliff face. */
+  wall?: { edgeZ: number; t: number };
+  /** Frames of Turn warning left (cold pulse on tiles about to become wall). */
+  turnWarn?: number;
 }
 
 const MAX = 320;
@@ -76,6 +80,22 @@ export class TilesView {
   }
 
   onEvent(e: SimEvent, frame: number): void {
+    if (e.t === "TurnWarn") {
+      for (const v of this.views.values()) if (v.falling < 0 && !v.wall && v.z < e.edgeZ) v.turnWarn = e.frames;
+      return;
+    }
+    if (e.t === "Turn") {
+      for (const c of e.walls) {
+        const k = this.key(c.x, c.z);
+        const v = this.views.get(k);
+        if (!v) continue;
+        v.wall = { edgeZ: e.edgeZ, t: 0 };
+        v.turnWarn = 0;
+        this.views.delete(k);
+        this.views.set(-++this.fallSeq, v); // persists as cliff; never reconciled as falling
+      }
+      return;
+    }
     if (e.t === "TileRise") {
       const k = this.key(e.x, e.z);
       const v = this.views.get(k);
@@ -133,6 +153,33 @@ export class TilesView {
       let rx = 0;
       let rz = 0;
       let s = 1;
+      if (v.wall) {
+        // hinge 90° down about the ledge's rear edge (GDD §18: ground on one face becomes a wall on the next)
+        v.wall.t += dtFrames;
+        const u = Math.min(1, v.wall.t / TUNING.turn.frames);
+        const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        const theta = (this.reducedMotion ? Math.round(u) : e) * (Math.PI / 2);
+        const pivotZ = wz(v.wall.edgeZ) + TILE / 2;
+        const d = wz(v.z) - pivotZ;
+        this.dummy.position.set(wx(v.x), -d * Math.sin(theta), pivotZ + d * Math.cos(theta));
+        this.dummy.rotation.set(theta, 0, 0);
+        this.dummy.scale.set(1, 1, 1);
+        this.dummy.updateMatrix();
+        if (nb < MAX) {
+          this.body.setMatrixAt(nb, this.dummy.matrix);
+          this.color.setRGB(1.05, 1.0, 0.96); // reads as former ground, not void
+          this.body.setColorAt(nb, this.color);
+          nb++;
+        }
+        if (ns < MAX) {
+          this.seams.setMatrixAt(ns, this.dummy.matrix);
+          this.color.setHex(PALETTE.seam).multiplyScalar(0.5 * (1 - u) + 0.14);
+          this.seams.setColorAt(ns, this.color);
+          ns++;
+        }
+        continue;
+      }
+      if (v.turnWarn && v.turnWarn > 0) v.turnWarn = Math.max(0, v.turnWarn - dtFrames);
       if (v.falling >= 0) {
         v.falling += dtFrames;
         const t = Math.max(0, v.falling - v.fallDelay);
@@ -184,6 +231,7 @@ export class TilesView {
         this.color.setHex(PALETTE.seam).multiplyScalar(Math.max(0, b));
         const warned = v.warn > 0 || (warnRow !== null && v.z === warnRow && v.falling < 0);
         if (warned) this.color.setHex(PALETTE.crumbleWarn).multiplyScalar(0.8 + pulse * 1.4);
+        else if (v.turnWarn && v.turnWarn > 0) this.color.setHex(PALETTE.glass).multiplyScalar(0.5 + pulse * 1.2); // cold: the world is about to move
         if (v.falling >= 0) this.color.multiplyScalar(0.3);
         this.seams.setColorAt(ns, this.color);
         ns++;

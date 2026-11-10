@@ -772,7 +772,7 @@ export class Game {
       const s = w.config.stage!;
       const cleared = w.outcome?.kind === "clear";
       const r = w.rating();
-      const next = stageById(s.id + 1);
+      const next = s.id < 80 ? stageById(s.id + 1) : undefined;
       this.ui.show({
         id: "results",
         title: `${String(s.id).padStart(3, "0")} · ${s.name.toUpperCase()}`,

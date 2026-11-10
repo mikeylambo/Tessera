@@ -156,6 +156,17 @@ export class Sfx {
         case "Fall":
           e.tone(e.sfx, { freq: 440, glideTo: 60, at: now, decay: 1.4, gain: 0.12, send: 0.8 });
           break;
+        case "TurnWarn":
+          // cold rising fifth: the construct is about to move (distinct from the Crumble hum)
+          e.tone(e.sfx, { type: "triangle", freq: midiFreq(50), glideTo: midiFreq(57), at: now, attack: 0.3, decay: ev.frames / 60, gain: 0.05, send: 0.8 });
+          e.tone(e.sfx, { freq: midiFreq(74), at: now + 0.2, attack: 0.4, decay: ev.frames / 60, gain: 0.025, send: 0.9 });
+          break;
+        case "Turn":
+          // the construct turns: deep stone groan under a slow open chord
+          e.burst(e.sfx, { at: now, decay: 1.2, gain: 0.32, freq: 140, sweepTo: 60, q: 0.8, type: "lowpass", send: 0.5 });
+          for (const m of [38, 45, 50, 57]) e.tone(e.sfx, { type: "sawtooth", freq: midiFreq(m), at: now, attack: 0.25, decay: 1.4, gain: 0.03, filter: 900, send: 0.8 });
+          e.duck(4, 1);
+          break;
         case "Announce":
           this.announce(ev.line, now);
           break;

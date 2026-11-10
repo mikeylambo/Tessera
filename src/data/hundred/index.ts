@@ -17,6 +17,12 @@ export const ACTS = [
   { act: 5, name: "Mastery", first: 66, last: 80 }
 ] as const;
 
+/** Act VI · The Turn (Finale update, GDD §18/§39). Stage 81 is the Phase 0 Turn prototype: reachable via ?stage=81, not in v1 stage select. */
+export const FINALE = { act: 6, name: "The Turn", first: 81, last: 100 } as const;
+
+/** Stages shipped in v1 (Acts I–V). */
+export const V1_STAGES: readonly StageDef[] = STAGES.filter((s) => s.id <= 80);
+
 export function stageById(id: number): StageDef | undefined {
   return STAGES.find((s) => s.id === id);
 }

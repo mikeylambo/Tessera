@@ -118,6 +118,12 @@ export class CubesView {
     this.dispose(v);
   }
 
+  private fallAll = false;
+  /** The Turn: every cube that leaves the sim this frame tumbles into the void instead of vanishing. */
+  departingFall(): void {
+    this.fallAll = true;
+  }
+
   /** Called on Escape: the cube tumbles over the rear edge into the void. */
   escape(id: number): void {
     const v = this.views.get(id);
@@ -201,6 +207,7 @@ export class CubesView {
     // unseen: escaped (tumble) or killed elsewhere
     for (const v of [...this.views.values()]) {
       if (v.seen) continue;
+      if (v.escaping < 0 && this.fallAll) v.escaping = 0;
       if (v.escaping < 0) {
         this.dispose(v);
         continue;
@@ -213,6 +220,7 @@ export class CubesView {
       v.root.rotation.x += 0.05;
       if (t > 60) this.dispose(v);
     }
+    this.fallAll = false;
     // next-cell chevron when the cursor is on a cube's cell
     this.chevron.visible = false;
     if (cursor) {
