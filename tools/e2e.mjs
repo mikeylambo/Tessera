@@ -162,8 +162,10 @@ try {
     });
     check(fell === "replay", `novice bot falls → loss replay (${fell})`);
     await page.evaluate(() => window.__GAME.bot.stop());
-    await sleep(900);
+    // the replay is wall-clock driven (3 s); under software GL a frame can take >1 s, so capture it at once
     await page.screenshot({ path: `${OUT}/06-loss-replay.png` });
+    const cause = await page.evaluate(() => window.__GAME.game.lastReplayCause);
+    check(!!cause, `loss replay highlights the cause cell (${JSON.stringify(cause)})`);
     const res = await waitFor(page, () => window.__GAME.state().screen === "results", 15000);
     check(res, "loss replay → Results");
     await sleep(500);

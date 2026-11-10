@@ -40,7 +40,7 @@ interface Node {
 }
 
 /** A macro is fixed inputs, or "policy": the expert bot drives the window (search never does worse than it). */
-type Macro = FrameInput[] | "policy";
+type Macro = FrameInput[] | "policy" | "waitBlast";
 
 const at = (n: number, f: Partial<FrameInput>): FrameInput[] => {
   const out: FrameInput[] = Array.from({ length: WINDOW }, () => ({ ...NO_INPUT }));
@@ -89,15 +89,25 @@ function macros(w: World): Macro[] {
       out.push(m);
     }
   }
+  if (w.run.glyphs.length && glyphPotential(w) >= 3) out.push("waitBlast");
   if (w.run.glyphs.length) {
     const g = w.run.glyphs[0]!;
     const caught = w.cubes.alive().filter((c) => {
       const l = w.logical(c);
       return l && Math.abs(l.x - g.x) <= 1 && Math.abs(l.z - g.z) <= 1;
     });
-    if (caught.length && !caught.some((c) => c.type === "forbidden")) out.push(at(0, { blast: true }));
+    // only offer the Blast once the catch is as good as it will get (or nothing better is coming)
+    const still = glyphPotential(w);
+    if (caught.length && !caught.some((c) => c.type === "forbidden") && caught.length >= Math.min(3, still)) out.push(at(0, { blast: true }));
   }
   return out;
+}
+
+/** Standards that are in, or will roll through, the oldest Glyph's 3×3 (a held Glyph is worth waiting for). */
+function glyphPotential(w: World): number {
+  const g = w.run.glyphs[0];
+  if (!g) return 0;
+  return w.cubes.alive().filter((c) => isStandard(c.type) && c.landTick < 0 && Math.abs(c.x - g.x) <= 1 && c.z >= g.z - 1).length;
 }
 
 function evaluate(w: World, stage: StageDef): number {
@@ -107,7 +117,7 @@ function evaluate(w: World, stage: StageDef): number {
   let front = -Infinity;
   for (const t of conn) front = Math.max(front, t.z);
   const o = stage.objective;
-  let s = conn.length * 2 - w.marksPlaced * 3 + w.kills * 4;
+  let s = conn.length * 2 - w.marksPlaced * 3 + w.kills * 4 + glyphPotential(w) * 6;
   if (o.type === "exit") s += front * 40 + w.player.z * 25 - Math.abs(w.player.z - o.z) * 5;
   else if (o.type === "clear") s += w.kills * 30;
   else s += w.tick * 5;
@@ -130,8 +140,46 @@ export function solveStage(stage: StageDef, opts: SolverOptions = {}): SolverRes
       for (const m of macros(n.w)) {
         const w = n.w.clone();
         const log = n.log.slice();
+        if (m === "waitBlast") {
+          // hold still until the oldest Glyph's 3×3 holds the most Standards it ever will, then Blast (multi-window)
+          const caught = () => {
+            const g = w.run.glyphs[0];
+            if (!g) return { n: 0, bad: true };
+            let cnt = 0;
+            let bad = false;
+            for (const c of w.cubes.alive()) {
+              const l = w.logical(c);
+              if (!l || Math.abs(l.x - g.x) > 1 || Math.abs(l.z - g.z) > 1) continue;
+              if (c.type === "forbidden") bad = true;
+              else cnt++;
+            }
+            return { n: cnt, bad };
+          };
+          let best = 0;
+          let fired = false;
+          for (let i = 0; i < 60 * 12 && !w.ended && !w.outcome; i++) {
+            const c = caught();
+            const pot = glyphPotential(w);
+            if (!c.bad && c.n >= 3 && (c.n >= pot || (best > 0 && c.n < best))) {
+              const inp = { ...NO_INPUT, blast: true };
+              log.push([w.frame, inp]);
+              w.step(inp);
+              w.events.drain();
+              fired = true;
+              break;
+            }
+            best = Math.max(best, c.bad ? 0 : c.n);
+            w.step(NO_INPUT);
+            w.events.drain();
+          }
+          if (!fired) continue;
+          for (let i = 0; i < 8 && !w.ended && !w.outcome; i++) {
+            w.step(NO_INPUT);
+            w.events.drain();
+          }
+        }
         const bot = m === "policy" ? new Bot("expert", n.w.frame) : null;
-        for (let i = 0; i < WINDOW; i++) {
+        for (let i = 0; m !== "waitBlast" && i < WINDOW; i++) {
           if (w.ended || w.outcome) break;
           const inp = bot ? bot.think(w) : (m as FrameInput[])[i]!;
           if (inp.press || inp.mark || inp.detonate || inp.blast) log.push([w.frame, inp]);

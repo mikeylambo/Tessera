@@ -18,6 +18,9 @@ import { Bot, type BotLevel } from "../dev/bot";
 
 export type Phase = "boot" | "title" | "menu" | "playing" | "paused" | "runes" | "replay" | "results";
 
+/** Solver witnesses, lazily loaded only when hint sigils are needed. */
+const WITNESSES = import.meta.glob("../../tests/witness/*.json");
+
 const LINES = { tessera: "Tessera.", beautiful: "Beautiful.", holdOn: "Hold on.", purified: "Purified.", again: "Again." } as const;
 
 /** Mobile vibration only; gamepad rumble comes from the Feel Kit impact bundles (weak/strong 0 here). */
@@ -305,8 +308,23 @@ export class Game {
     if (config.mode === "hundred" && config.stage?.id === 1) this.ui.subtitle(LINES.tessera, this.profile.settings.snapshot().subtitles, true);
   }
 
+  /** Session failures per stage (hint sigils after 3, GDD §22). */
+  private failures = new Map<number, number>();
+
+  /** Hint sigils: after 3 failures of a stage, the solver witness's marks become faint ghost sigils (lazy chunk). */
+  private async loadHints(id: number): Promise<void> {
+    this.view.overlay.hints = [];
+    if ((this.failures.get(id) ?? 0) < TUNING.onboarding.hintAfterFailures || !this.profile.settings.snapshot().hintSigils) return;
+    const loader = WITNESSES[`../../tests/witness/${String(id).padStart(3, "0")}.json`];
+    if (!loader) return;
+    const mod = (await loader()) as { default: { entries: Array<[number, number, number, number, number, number, number, number]> } };
+    if (this.world?.config.stage?.id !== id) return;
+    this.view.overlay.hints = mod.default.entries.filter((e) => e[3] >= 0).map((e) => ({ frame: e[0], x: e[3], z: e[4] }));
+  }
+
   startStage(id: number): void {
     const stage = stageById(id) ?? STAGES[0]!;
+    void this.loadHints(stage.id);
     this.begin({ mode: "hundred", seed: `stage-${stage.id}`, stage, assist: this.profile.settings.snapshot().assistSpeed });
   }
 
@@ -338,6 +356,8 @@ export class Game {
     }
     this.recordBest(w);
     void this.profile.save();
+    const sid = w.config.stage?.id;
+    if (sid) this.failures.set(sid, (this.failures.get(sid) ?? 0) + 1);
     this.music.setState("fall");
     this.startLossReplay(w);
   }
@@ -385,6 +405,9 @@ export class Game {
     this.view.attach(rw);
     this.view.feel.extraUp = 0;
     this.replay = { world: rw, player, end: end + 12, speed: 0.4, acc: 0, cause: this.describeCause(w) };
+    const o = w.outcome;
+    this.view.overlay.cause = o?.kind === "fall" ? { x: o.x, z: o.z } : w.lastCause ? { x: w.lastCause.x, z: w.lastCause.z } : null;
+    this.lastReplayCause = this.view.overlay.cause;
     this.phase = "replay";
     this.replayLast = 0;
     this.ui.showHud(false, false);
@@ -407,6 +430,8 @@ export class Game {
 
   private replaySkip: (() => void) | null = null;
   private replayLast = 0;
+  /** The cell the last loss replay highlighted (verification). */
+  lastReplayCause: { x: number; z: number } | null = null;
 
   private describeCause(w: World): string {
     const o = w.outcome;
@@ -451,6 +476,7 @@ export class Game {
 
   skipReplay(): void {
     if (this.phase !== "replay") return;
+    this.view.overlay.cause = null;
     this.replaySkip?.();
     this.replaySkip = null;
     this.replay = null;
@@ -521,6 +547,7 @@ export class Game {
 
   private showTitle(): void {
     this.phase = "title";
+    this.view.feel.holdIntro(26);
     this.ui.showHud(false, false);
     this.ui.show({ id: "title", title: "TESSERA", items: [], body: `<div class="t-press">Press any key</div>`, onPick: () => this.leaveTitle() });
     const go = (e: Event) => {
@@ -535,6 +562,7 @@ export class Game {
 
   private leaveTitle(): void {
     if (this.phase !== "title") return;
+    this.view.feel.releaseIntro();
     this.audio.unlock();
     this.music.setState("title");
     this.sfx.ui("confirm");

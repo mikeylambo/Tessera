@@ -33,6 +33,9 @@ export class TesseraFeel {
   private up = 0;
   /** Extra height (Last Stand +2, loss replay high angle). */
   extraUp = 0;
+  /** Title → play: the camera starts high above the slab and descends onto the figure (GDD §22.2). */
+  private intro = 0;
+  private introHold = false;
   /** Blast push-in (units), decays. */
   push = 0;
   portrait = false;
@@ -83,12 +86,23 @@ export class TesseraFeel {
     const k = 1 - Math.exp(-6 * dt);
     this.pull += ((this.portrait ? c.portraitPullback : 1) - this.pull) * k;
     this.up += (this.extraUp - this.up) * k;
+    if (!this.introHold) this.intro *= Math.exp(-1.4 * dt);
     this.push *= Math.exp(-3.5 * dt);
     const off = new THREE.Vector3(frame.position.x - frame.target.x, frame.position.y - frame.target.y, frame.position.z - frame.target.z);
     const len = off.length();
     off.multiplyScalar((len * this.pull - (this.reducedMotion ? 0 : this.push)) / Math.max(1e-6, len));
-    const framed = { ...frame, position: { x: frame.target.x + off.x, y: frame.target.y + off.y + this.up, z: frame.target.z + off.z } };
+    const framed = { ...frame, position: { x: frame.target.x + off.x, y: frame.target.y + off.y + this.up + this.intro, z: frame.target.z + off.z + this.intro * 0.35 } };
     applyCameraFrame(camera, framed, this.director.shake.offset);
+  }
+
+  /** Hold the camera high (title); `release()` lets it descend over ~3 s. Reduced Motion cuts instead. */
+  holdIntro(height: number): void {
+    this.intro = height;
+    this.introHold = true;
+  }
+  releaseIntro(): void {
+    this.introHold = false;
+    if (this.reducedMotion) this.intro = 0;
   }
 
   snap(): void {

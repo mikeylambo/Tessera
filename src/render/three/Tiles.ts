@@ -210,7 +210,13 @@ export class TilesView {
       this.dummy.scale.set(s, raised ? (THICK + TUNING.iron.raise) / THICK : 1, s);
       this.dummy.updateMatrix();
       if (v.type === "glass") {
-        if (ng < 64) this.glass.setMatrixAt(ng++, this.dummy.matrix);
+        if (ng < 64) {
+          this.glass.setMatrixAt(ng, this.dummy.matrix);
+          // cracks spread across a Glass tile about to shatter (GDD §11 tell table): brighter, flickering
+          const k = v.crack ? 1.6 + 0.6 * Math.sin(this.frame * 1.3 + v.x) : 1;
+          this.glass.setColorAt(ng, this.color.setRGB(k, k, k));
+          ng++;
+        }
       } else if (nb < MAX) {
         this.body.setMatrixAt(nb, this.dummy.matrix);
         const warm = v.falling >= 0 ? 0.55 : 1;
@@ -250,6 +256,7 @@ export class TilesView {
     this.body.instanceMatrix.needsUpdate = true;
     if (this.body.instanceColor) this.body.instanceColor.needsUpdate = true;
     this.glass.instanceMatrix.needsUpdate = true;
+    if (this.glass.instanceColor) this.glass.instanceColor.needsUpdate = true;
     this.seams.instanceMatrix.needsUpdate = true;
     if (this.seams.instanceColor) this.seams.instanceColor.needsUpdate = true;
     this.glyphs.instanceMatrix.needsUpdate = true;

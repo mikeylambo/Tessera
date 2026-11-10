@@ -1,4 +1,4 @@
-# The Hundred — solvability report (stages 1–80)
+# The Hundred — solvability report (stages 1–80 + Turn prototype 81)
 
 Every stage below has a witness input log (`tests/witness/NNN.json`) found by the plan-search solver
 (`npm run solve`, `src/dev/solver.ts`): beam search over real-sim macro-actions with a protected expert-policy lineage.
@@ -19,16 +19,16 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 10 | 1 | Crossing | exit z11 | Crumble 7 | 16 | 32.4 s |
 | 11 | 2 | Do Not Touch | survive 18t | Forbidden | 0 | 21.6 s |
 | 12 | 2 | Let It Pass | exit z6 | Forbidden | 5 | 16.4 s |
-| 13 | 2 | Glyph | clear | Advantage | 4 | 18.7 s |
-| 14 | 2 | Breath | clear | Advantage | 7 | 16.0 s |
+| 13 | 2 | Glyph | clear | Advantage | 1 | 16.7 s |
+| 14 | 2 | Breath | clear | Advantage | 1 | 14.3 s |
 | 15 | 2 | Scar | exit z7 | Forbidden, Crumble 8 | 6 | 16.7 s |
 | 16 | 2 | Narrow Gate | exit z7 | Forbidden | 6 | 16.6 s |
 | 17 | 2 | Restraint | clear | Forbidden | 7 | 14.3 s |
 | 18 | 2 | Glyph Bank | clear | Advantage | 9 | 17.9 s |
 | 19 | 2 | Ledge | survive 24t | Crumble 6 | 10 | 28.8 s |
-| 20 | 2 | Hold the Line | clear | Forbidden, Advantage | 7 | 19.2 s |
+| 20 | 2 | Hold the Line | clear | Forbidden, Advantage | 5 | 17.9 s |
 | 21 | 2 | Forward Light | exit z8 | Forbidden, Crumble 8 | 7 | 21.8 s |
-| 22 | 2 | Two Glyphs | clear | Advantage | 12 | 18.3 s |
+| 22 | 2 | Two Glyphs | clear | Advantage | 7 | 15.7 s |
 | 23 | 2 | Pressure Point | survive 24t | Forbidden, Crumble 6 | 8 | 28.8 s |
 | 24 | 2 | Bridge of Kings | exit z10 | Forbidden, Advantage, Crumble 7 | 8 | 26.9 s |
 | 25 | 2 | The Veil | exit z11 | Forbidden, Advantage, Crumble 7 | 11 | 26.6 s |
@@ -41,7 +41,7 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 32 | 3 | High Ground | clear | Iron | 10 | 16.8 s |
 | 33 | 3 | Anvils | clear | Iron | 17 | 16.7 s |
 | 34 | 3 | Iron and Glass | exit z7 | Glass, Iron | 12 | 20.3 s |
-| 35 | 3 | Blast the Iron | clear | Advantage, Iron | 9 | 16.8 s |
+| 35 | 3 | Blast the Iron | clear | Advantage, Iron | 3 | 14.4 s |
 | 36 | 3 | Forge | clear | Forbidden, Advantage, Iron | 9 | 15.8 s |
 | 37 | 3 | Material Crossing | exit z9 | Glass, Iron, Crumble 7 | 15 | 26.3 s |
 | 38 | 3 | Watch the Sky | survive 14t | Skyfall | 4 | 16.8 s |
@@ -51,7 +51,7 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 42 | 3 | Iron Sky | clear | Skyfall | 10 | 13.3 s |
 | 43 | 3 | Sky and Restraint | clear | Forbidden, Skyfall | 5 | 15.5 s |
 | 44 | 3 | Storm Front | survive 22t | Glass, Iron, Skyfall, Crumble 7 | 13 | 26.4 s |
-| 45 | 3 | Material | exit z10 | Advantage, Glass, Iron, Skyfall, Crumble 7 | 17 | 27.4 s |
+| 45 | 3 | Material | exit z10 | Advantage, Glass, Iron, Skyfall, Crumble 7 | 10 | 28.8 s |
 | 46 | 4 | Two Halves | clear | Phase | 2 | 4.8 s |
 | 47 | 4 | Tether | clear | Phase | 6 | 14.4 s |
 | 48 | 4 | Split | exit z6 | Phase | 7 | 19.9 s |
@@ -68,11 +68,11 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 59 | 4 | Last Phase | survive 22t | Forbidden, Phase, Last Stand | 8 | 26.4 s |
 | 60 | 4 | Pressure of Two | survive 24t | Phase, Crumble 6 | 11 | 28.8 s |
 | 61 | 4 | Phase Crossing | exit z9 | Phase, Crumble 7 | 8 | 16.3 s |
-| 62 | 4 | Twin Glyphs | clear | Advantage, Phase | 13 | 19.5 s |
+| 62 | 4 | Twin Glyphs | clear | Advantage, Phase | 13 | 18.3 s |
 | 63 | 4 | Restless | clear | Forbidden, Phase, Skyfall | 8 | 15.5 s |
 | 64 | 4 | Hold Together | survive 24t | Forbidden, Phase, Last Stand | 11 | 28.8 s |
-| 65 | 4 | Phase | exit z10 | Advantage, Iron, Phase, Crumble 7 | 15 | 29.0 s |
-| 66 | 5 | Every Lesson | clear | Forbidden, Advantage, Iron | 8 | 17.9 s |
+| 65 | 4 | Phase | exit z10 | Advantage, Iron, Phase, Crumble 7 | 8 | 26.6 s |
+| 66 | 5 | Every Lesson | clear | Forbidden, Advantage, Iron | 3 | 16.7 s |
 | 67 | 5 | Glass Bridge | exit z7 | Glass | 5 | 14.6 s |
 | 68 | 5 | Long Shadow | clear | Skyfall | 11 | 14.6 s |
 | 69 | 5 | Iron Will | clear | Iron | 22 | 22.2 s |
@@ -80,10 +80,11 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 71 | 5 | Small Ground | survive 22t | Forbidden, Last Stand, Crumble 8 | 7 | 26.4 s |
 | 72 | 5 | Glass Gauntlet | clear | Glass | 10 | 16.8 s |
 | 73 | 5 | Three Ways | survive 24t | Forbidden, Crumble 6 | 9 | 28.8 s |
-| 74 | 5 | Blast Chain | clear | Advantage | 17 | 18.8 s |
+| 74 | 5 | Blast Chain | clear | Advantage | 8 | 16.1 s |
 | 75 | 5 | Skyfall Crossing | exit z8 | Skyfall, Crumble 8 | 7 | 17.5 s |
 | 76 | 5 | Tethered Iron | clear | Iron, Phase | 15 | 19.1 s |
 | 77 | 5 | Veil of Glass | exit z7 | Forbidden, Glass | 6 | 19.0 s |
 | 78 | 5 | Depth | exit z11 | Advantage, Iron, Phase, Crumble 7 | 10 | 26.4 s |
 | 79 | 5 | Restraint Absolute | clear | Forbidden | 7 | 26.3 s |
-| 80 | 5 | Mastery | exit z12 | Forbidden, Advantage, Glass, Iron, Phase, Skyfall, Crumble 7 | 17 | 30.8 s |
+| 80 | 5 | Mastery | exit z12 | Forbidden, Advantage, Glass, Iron, Phase, Skyfall, Crumble 7 | 14 | 30.6 s |
+| 81 | 6 | The Turn | exit z12 | Turn | 14 | 29.8 s |

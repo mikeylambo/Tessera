@@ -129,6 +129,12 @@ export class OverlayView {
   private chamberGlyphs: THREE.Mesh[] = [];
   private chamberAreas: THREE.Mesh[] = [];
   ghostDone = new Set<string>();
+  /** Loss replay: the cell where the run was lost (GDD §22 "cause highlighted"). */
+  cause: Cell | null = null;
+  private causeMesh: THREE.Mesh | null = null;
+  /** Hint sigils (GDD §22): useful cells from the stage's solver witness, shown after repeated failures. */
+  hints: Array<{ frame: number; x: number; z: number }> = [];
+  private hintMesh: THREE.Mesh | null = null;
   ghostsEnabled = true;
 
   constructor() {
@@ -230,6 +236,32 @@ export class OverlayView {
       g.scale.setScalar(0.9 + 0.12 * p);
     });
 
+    // loss replay: cause cell
+    if (!this.causeMesh) {
+      this.causeMesh = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.98, 4, 1, Math.PI / 4).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.crumbleWarn).multiplyScalar(2.2), transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }));
+      this.causeMesh.renderOrder = 7;
+      this.group.add(this.causeMesh);
+    }
+    this.causeMesh.visible = !!this.cause;
+    if (this.cause) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.t * 7);
+      this.causeMesh.position.set(wx(this.cause.x), 0.06, wz(this.cause.z));
+      this.causeMesh.scale.setScalar(TILE * (0.95 + 0.15 * pulse));
+      (this.causeMesh.material as THREE.MeshBasicMaterial).opacity = 0.45 + 0.5 * pulse;
+    }
+    // hint sigil: the next useful cell from the witness (one at a time, faint)
+    if (!this.hintMesh) {
+      this.hintMesh = new THREE.Mesh(this.sigilGeo, this.sigilMaterial(PALETTE.mark, 1.0, 0.35));
+      this.hintMesh.renderOrder = 3;
+      this.group.add(this.hintMesh);
+    }
+    const hint = this.ghostsEnabled ? this.hints.find((h) => h.frame >= w.frame - 20 && h.frame - w.frame <= 150 && !w.marks.has(h)) : undefined;
+    this.hintMesh.visible = !!hint;
+    if (hint) {
+      this.hintMesh.position.set(wx(hint.x), tileTop(hint.x, hint.z) + 0.03, wz(hint.z));
+      (this.hintMesh.material as THREE.MeshBasicMaterial).opacity = 0.16 + 0.18 * (0.5 + 0.5 * Math.sin(this.t * 3));
+    }
+
     // Chamber Glyph sigils (Blast centres on the void lattice) + armed 3×3 preview
     const ch = w.chamber;
     const n = ch ? ch.glyphs.length : 0;
@@ -324,6 +356,9 @@ export class OverlayView {
   reset(): void {
     for (const m of this.marks) this.group.remove(m.mesh, m.ring);
     this.marks = [];
+    for (const f of this.fizzles) this.group.remove(f.mesh, f.ring);
+    this.fizzles = [];
+    this.cause = null;
     for (const g of this.ghosts) this.group.remove(g);
     this.ghosts = [];
     for (const g of this.beacons.values()) this.group.remove(g);
