@@ -1,3 +1,4 @@
+import { warmFairnessSearch } from "./sim/Fairness";
 import "@fontsource/cinzel/400.css";
 import "@fontsource/jetbrains-mono/400.css";
 import { SLUWebShell, ThreeAdapter, mountBrowserDevConsole } from "@slu/web-shell";
@@ -29,6 +30,8 @@ shell.studio.dev.register("tessera.state", { description: "Tessera sim state", r
 installGameApi(game);
 await shell.boot();
 await game.boot();
+// warm the fairness plan search off the critical path (title screen idle time)
+setTimeout(() => warmFairnessSearch(), 0);
 const q = new URLSearchParams(location.search);
 if (q.get("dev") === "1") mountBrowserDevConsole(shell.studio.dev, { title: "TESSERA DEV" });
 if (q.get("dev") === "1" || q.has("tune")) {

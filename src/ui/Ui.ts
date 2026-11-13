@@ -66,6 +66,9 @@ const CSS = /* css */ `
 .t-stats { display:grid; grid-template-columns:auto auto; gap:6px 28px; margin:0 0 24px; font-size:calc(13px * var(--ui-scale)); }
 .t-stats .k { color:var(--dim); letter-spacing:0.14em; text-transform:uppercase; }
 .t-stats .v { text-align:right; color:var(--ink); }
+.t-board { min-width:min(360px, 92vw); font-variant-numeric:tabular-nums; }
+.t-board .me { color:var(--amber); }
+.t-board .sep { color:var(--dim); text-align:center; }
 .t-lead { color:var(--amber); letter-spacing:0.16em; margin:0 0 18px; text-align:center; }
 .t-rating { font-size:2.2em; color:var(--amber); letter-spacing:0.4em; margin:0 0 14px; text-indent:0.4em; }
 .t-notice { position:absolute; left:50%; top:52px; transform:translateX(-50%); color:var(--dim); font-size:11px; letter-spacing:0.12em; opacity:0; transition:opacity 500ms; }
@@ -174,6 +177,17 @@ export class Ui {
     this.focus = 0;
     this.paintFocus();
     requestAnimationFrame(() => s.classList.add("on"));
+  }
+
+  /** Id of the screen showing, or null. */
+  get currentId(): string | null {
+    return this.spec?.id ?? null;
+  }
+
+  /** Focus the n-th enabled item (keeps the cursor on a ◂ ▸ row when a screen re-renders itself). */
+  setFocus(n: number): void {
+    this.focus = Math.max(0, Math.min(n, this.enabled().length - 1));
+    this.paintFocus();
   }
 
   hide(): void {

@@ -1,4 +1,5 @@
 import { World, type WorldConfig } from "../sim/World";
+import { composeName, fetchBoard, newIdentity, submit, NAME_A, NAME_B, type BoardRow, type SubmitResult } from "../platform/web/leaderboard";
 import { InputRecorder, InputPlayer, resimulate } from "../sim/Replay";
 import { NO_INPUT, type FrameInput } from "../sim/types";
 import type { SimEvent } from "../sim/Events";
@@ -139,6 +140,12 @@ export class Game {
     this.applySettings(this.profile.settings.snapshot());
     this.profile.settings.events.on("changed", (s) => this.applySettings(s));
     if (this.profile.notice) this.ui.notice(this.profile.notice);
+    if (!this.profile.data.playerId) {
+      Object.assign(this.profile.data, newIdentity());
+      void this.profile.save();
+    }
+    window.addEventListener("online", () => void this.flushSubmissions());
+    void this.flushSubmissions();
     // idle world behind the title: the slab floats in the fog
     this.world = new World({ mode: "sandbox", seed: 1 });
     this.view.attach(this.world);
@@ -290,6 +297,7 @@ export class Game {
   private begin(config: WorldConfig, ranked = false): void {
     this.config = config;
     this.ranked = ranked;
+    this.boardStatus = "idle";
     this.world = new World(config);
     this.view.attach(this.world);
     this.recorder.reset();
@@ -370,6 +378,100 @@ export class Game {
     this.profile.data.hundred[s.id] = { rating: Math.max(prev?.rating ?? 0, rating), bestMarks: Math.min(prev?.bestMarks ?? Infinity, w.marksPlaced) };
   }
 
+  /** Endless ranks only the full cube set, unassisted, from Sector 1 (same rules for everyone; DECISIONS #67). */
+  private endlessRanked(w: World): boolean {
+    const c = w.config;
+    return c.mode === "endless" && !c.assist && (c.unlockedAct ?? 5) >= 5 && (c.sector ?? 1) === 1 && !this.flags.quick && !this.flags.sector && !this.flags.seed;
+  }
+
+  private boardStatus: "idle" | "pending" | "offline" | SubmitResult = "idle";
+  private flushing = false;
+
+  get playerName(): string {
+    return composeName(this.profile.data.nameA, this.profile.data.nameB);
+  }
+
+  /** Send queued runs oldest-first; keep them on network trouble, drop on a permanent rejection. */
+  private async flushSubmissions(): Promise<void> {
+    if (this.flushing || this.flags.headless || navigator.webdriver) return; // automation (E2E) never touches live boards
+    this.flushing = true;
+    try {
+      const q = this.profile.data.pendingSubmissions;
+      while (q.length) {
+        const r = await submit(q[0]!, this.profile.data.playerId, this.playerName);
+        if (r === null) {
+          if (this.boardStatus === "pending") this.boardStatus = "offline";
+          break;
+        }
+        q.shift();
+        if (r !== "rejected") this.boardStatus = r;
+        await this.profile.save();
+      }
+    } finally {
+      this.flushing = false;
+      this.paintBoardStatus();
+    }
+  }
+
+  private boardLine(): string {
+    const b = this.boardStatus;
+    if (b === "idle") return "";
+    if (b === "pending") return "Verifying run…";
+    if (b === "offline") return "Run saved · will rank when online";
+    const what = b.board === "endless" ? "Endless" : "Daily";
+    return `${what} rank #${b.rank} of ${b.of}${b.recorded ? "" : ` · best ${b.best.toLocaleString("en-US")} stands`}`;
+  }
+
+  private paintBoardStatus(): void {
+    const el = document.querySelector<HTMLElement>("[data-board-status]");
+    if (el) el.textContent = this.boardLine();
+  }
+
+  private showBoards(which: "daily" | "endless" = "daily"): void {
+    const board = which === "daily" ? `daily:${utcDay()}` : "endless";
+    const render = (data: { rows: BoardRow[]; mine: BoardRow | null } | null | "loading") => {
+      const fmt = (r: BoardRow) => `<span class="k${r.me ? " me" : ""}">${String(r.rank).padStart(2, "0")} ${r.name}</span><span class="v${r.me ? " me" : ""}">${r.score.toLocaleString("en-US")}</span>`;
+      const body =
+        data === "loading" ? `<div class="t-sub">Reading the boards…</div>`
+        : !data ? `<div class="t-sub">Boards unreachable · runs still rank later</div>`
+        : !data.rows.length ? `<div class="t-sub">${which === "daily" ? "No one has fallen today. Be first." : "No Endless runs ranked yet."}</div>`
+        : `<div class="t-stats t-board">${data.rows.map(fmt).join("")}${data.mine && !data.rows.some((r) => r.me) ? `<span class="k sep">···</span><span class="v sep"></span>${fmt(data.mine)}` : ""}</div>`;
+      const rules = which === "daily" ? `${utcDay()} · first attempt counts` : "All acts unlocked · no assist";
+      this.ui.show({
+        id: "boards",
+        title: which === "daily" ? "DAILY TESSERA" : "ENDLESS",
+        subtitle: rules,
+        body,
+        items: [
+          { id: "switch", label: which === "daily" ? "Endless board" : "Daily board" },
+          { id: "a", label: "Name", detail: `<span class="adj">◂ ${NAME_A[this.profile.data.nameA]} ▸</span>`, adjust: (d) => this.cycleName("A", d, which) },
+          { id: "b", label: "", detail: `<span class="adj">◂ ${NAME_B[this.profile.data.nameB]} ▸</span>`, adjust: (d) => this.cycleName("B", d, which) },
+          { id: "back", label: "Back" }
+        ],
+        onPick: (id) => (id === "switch" ? this.showBoards(which === "daily" ? "endless" : "daily") : id === "back" ? this.showMenu() : undefined),
+        onBack: () => this.showMenu()
+      });
+    };
+    render(this.boardCache.get(board) ?? "loading");
+    void fetchBoard(board, this.profile.data.playerId).then((d) => {
+      if (d) this.boardCache.set(board, d);
+      if (this.ui.currentId === "boards") render(d);
+    });
+  }
+
+  private boardCache = new Map<string, { rows: BoardRow[]; mine: BoardRow | null }>();
+
+  /** Rename takes effect on boards at the next submission (handles are curated words: nothing to moderate). */
+  private cycleName(part: "A" | "B", d: -1 | 1, which: "daily" | "endless"): void {
+    const p = this.profile.data;
+    if (part === "A") p.nameA = (p.nameA + d + NAME_A.length) % NAME_A.length;
+    else p.nameB = (p.nameB + d + NAME_B.length) % NAME_B.length;
+    void this.profile.save();
+    const keepFocus = part === "A" ? 1 : 2;
+    this.showBoards(which);
+    this.ui.setFocus(keepFocus);
+  }
+
   private recordBest(w: World): void {
     const p = this.profile.data;
     if (w.config.mode === "endless" || w.config.mode === "daily") {
@@ -380,8 +482,14 @@ export class Game {
     if (w.config.mode === "daily" && this.ranked) {
       const day = String(w.config.seed).replace("DAILY-", "");
       p.dailyRanked[day] = { score: w.score.total, depth: w.depthRow };
-      // offline-first queue; submitted with the input log for replay validation once leaderboards are online
-      p.pendingSubmissions.push({ mode: "daily", seed: String(w.config.seed), score: w.score.total, depth: w.depthRow, frames: w.frame, entries: this.recorder.entries });
+      // offline-first queue; the server re-simulates the input log and ranks only what the replay reproduces
+      p.pendingSubmissions.push({ mode: "daily", seed: String(w.config.seed), score: w.score.total, depth: w.depthRow, frames: w.frame, entries: [...this.recorder.entries] });
+    }
+    const queued = (w.config.mode === "daily" && this.ranked) || this.endlessRanked(w);
+    if (this.endlessRanked(w)) p.pendingSubmissions.push({ mode: "endless", seed: String(w.config.seed), score: w.score.total, depth: w.depthRow, frames: w.frame, entries: [...this.recorder.entries] });
+    if (queued) {
+      this.boardStatus = "pending";
+      void this.flushSubmissions();
     }
   }
 
@@ -592,6 +700,7 @@ export class Game {
       { id: "hundred", label: "The Hundred", detail: `${Object.keys(this.profile.data.hundred).length} / 100` },
       { id: "endless", label: "Endless", detail: unlocked ? (this.profile.data.bestDepth ? `depth ${this.profile.data.bestDepth}` : "") : "after Act I", disabled: !unlocked },
       { id: "daily", label: "Daily Tessera", detail: unlocked ? utcDay() : "after Act I", disabled: !unlocked },
+      { id: "boards", label: "Boards", detail: unlocked ? this.playerName : "after Act I", disabled: !unlocked },
       { id: "settings", label: "Settings" },
       { id: "credits", label: "Credits" }
     );
@@ -604,6 +713,7 @@ export class Game {
         else if (id === "hundred") this.showHundred();
         else if (id === "endless") this.startEndless();
         else if (id === "daily") this.startDaily();
+        else if (id === "boards") this.showBoards();
         else if (id === "settings") this.showSettings(() => this.showMenu());
         else if (id === "credits") this.showCredits();
       }
@@ -824,7 +934,7 @@ export class Game {
     this.ui.show({
       id: "results",
       title: w.config.mode === "daily" ? `DAILY · ${String(w.config.seed).replace("DAILY-", "")}` : "THE FALL",
-      body: `<div class="t-lead">${best}</div>${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 1 ? [["Best chain", w.score.bestChain] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${w.config.mode === "daily" && this.ranked ? `<div class="t-sub">Ranked attempt recorded · leaderboard offline</div>` : ""}`,
+      body: `<div class="t-lead">${best}</div>${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 1 ? [["Best chain", w.score.bestChain] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${this.boardStatus !== "idle" ? `<div class="t-sub" data-board-status>${this.boardLine()}</div>` : ""}`,
       items: [{ id: "retry", label: "Retry" }, { id: "share", label: "Share" }, { id: "menu", label: "Menu" }],
       onPick: (id) => (id === "retry" ? this.retry() : id === "share" ? void this.share() : this.showMenu()),
       onBack: () => this.showMenu()

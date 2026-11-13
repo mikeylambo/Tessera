@@ -16,6 +16,10 @@ export interface Profile {
   firstLaunchDone: boolean;
   suspended: SuspendedRun | null;
   pendingSubmissions: Array<{ mode: string; seed: string; score: number; depth: number; frames: number; entries: LogEntry[] }>;
+  /** Board identity (additive; created on first load). Handle = NAME_A[nameA]-NAME_B[nameB]. */
+  playerId: string;
+  nameA: number;
+  nameB: number;
 }
 
 export interface SuspendedRun {
@@ -40,7 +44,10 @@ export function defaultProfile(): Profile {
     palettes: [],
     firstLaunchDone: false,
     suspended: null,
-    pendingSubmissions: []
+    pendingSubmissions: [],
+    playerId: "",
+    nameA: 0,
+    nameB: 0
   };
 }
 

@@ -282,13 +282,21 @@ try {
     const box = await page.locator("#game-canvas").boundingBox();
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height * 0.75;
-    // swipe up = step forward (one tile)
+    // swipe up = step forward (one tile). The three touch events are dispatched in one task so no sim frames run
+    // between them: emulated phones render at ~7 fps under software GL, and CDP-dispatched events then arrive ~2 s
+    // apart — which the game correctly reads as a hold-swipe (GDD §8 auto-repeat), not a flick.
+    const z0 = await page.evaluate(() => window.__GAME.state().player.z);
+    /* global Touch, TouchEvent */
+    await page.evaluate(([x, y]) => {
+      const el = document.getElementById("game-canvas");
+      const mk = (cy) => new Touch({ identifier: 7, target: el, clientX: x, clientY: cy });
+      const fire = (type, cy, active) => el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: active ? [mk(cy)] : [], changedTouches: [mk(cy)] }));
+      fire("touchstart", y, true);
+      fire("touchmove", y - 40, true);
+      fire("touchend", y - 40, false);
+    }, [cx, cy]);
     const cdp = await ctx.newCDPSession(page);
     const touch = async (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
-    const z0 = await page.evaluate(() => window.__GAME.state().player.z);
-    await touch("touchStart", cx, cy);
-    await touch("touchMove", cx, cy - 40);
-    await touch("touchEnd", cx, cy - 40);
     await sleep(500);
     const z1 = await page.evaluate(() => window.__GAME.state().player.z);
     check(z1 === z0 + 1, `${name}: swipe steps one tile (${z0} → ${z1})`);

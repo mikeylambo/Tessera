@@ -812,6 +812,15 @@ export class World {
   }
 
   private pickFormation(): FormationDef | null {
+    this.fairMemo = { connected: this.connected().map((t) => ({ x: t.x, z: t.z })), results: new Map() };
+    try {
+      return this.pickFormationInner();
+    } finally {
+      this.fairMemo = null;
+    }
+  }
+
+  private pickFormationInner(): FormationDef | null {
     const band = bandForSector(this.sector);
     const pool = FORMATIONS.filter((x) => x.band === band);
     const rng = this.rng.stream("formations");
@@ -886,18 +895,34 @@ export class World {
 
   /** Fairness of a formation spawned now (Design Law 5): cheap necessary conditions, then the plan search. */
   fairness(rows: readonly string[]): { fair: boolean; reason: string } {
-    const connected = this.connected().map((t) => ({ x: t.x, z: t.z }));
+    // rerolls within one pickFormation re-test the same state: memoize by rows there (pure function of state + rows)
+    if (!this.fairMemo) return this.fairnessUncached(rows, this.connected().map((t) => ({ x: t.x, z: t.z })));
+    const mk = rows.join("/");
+    const hit = this.fairMemo.results.get(mk);
+    if (hit) return hit;
+    const res = this.fairnessUncached(rows, this.fairMemo.connected);
+    this.fairMemo.results.set(mk, res);
+    return res;
+  }
+
+  private fairMemo: { connected: Cell[]; results: Map<string, { fair: boolean; reason: string }> } | null = null;
+
+  private fairnessUncached(rows: readonly string[], connected: Cell[]): { fair: boolean; reason: string } {
     const pre = checkFormation({ rows, connected, reach: this.reach, maxMarks: this.maxMarks, tickLen: this.tickLen });
     if (!pre.fair) return pre;
+    const r = searchFormation(this.searchInputFor(rows, connected));
+    return { fair: r.fair, reason: r.fair ? "plan" : "no plan" };
+  }
+
+  /** The plan-search input for spawning `rows` now (exposed for tests and tooling). */
+  searchInputFor(rows: readonly string[], connected = this.connected().map((t) => ({ x: t.x, z: t.z }))): SearchInput {
     const front = this.grid.frontZ() ?? this.player.z;
     const z0 = front + TUNING.spawn.distance;
     const interval = this.crumbleInterval();
     const first = this.crumble.contacted ? interval - this.crumble.counter : Math.max(0, z0 - front - this.reach) + interval;
     const crumbleAt: number[] = [];
     if (this.crumble.enabled) for (let t = first; t < z0 - front + 12; t += interval) crumbleAt.push(t);
-    const input: SearchInput = { rows, z0, ground: connected, player: { x: this.player.x, z: this.player.z }, reach: this.reach, maxMarks: this.maxMarks, tickLen: this.tickLen, crumbleAt };
-    const r = searchFormation(input);
-    return { fair: r.fair, reason: r.fair ? "plan" : "no plan" };
+    return { rows, z0, ground: connected, player: { x: this.player.x, z: this.player.z }, reach: this.reach, maxMarks: this.maxMarks, tickLen: this.tickLen, crumbleAt };
   }
 
   lastFairness: { id: string; fair: boolean; reason: string; attempts: number } | null = null;
