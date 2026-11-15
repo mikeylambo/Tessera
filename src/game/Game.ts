@@ -50,6 +50,12 @@ export function readFlags(search: string): UrlFlags {
   return { stage: num("stage"), sector: num("sector"), seed: q.get("seed"), quick: q.has("quick"), daily: q.get("daily"), playtest: q.has("playtest"), headless: q.has("headless") };
 }
 
+type PadAction = "padMark" | "padDetonate" | "padBlast";
+/** Standard-mapping button names (Xbox labels; PlayStation in brackets). */
+export function padButtonName(i: number): string {
+  return ["A (✕)", "B (○)", "X (□)", "Y (△)", "LB (L1)", "RB (R1)", "LT (L2)", "RT (R2)", "View", "Menu", "L3", "R3"][i] ?? `Button ${i}`;
+}
+
 function utcDay(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -170,6 +176,7 @@ export class Game {
     this.vibration = s.vibration;
     if (s.vibration) this.haptics.setEnabled(true);
     this.ui.setScale(s.uiScale);
+    this.devices.padBindings = { mark: s.padMark, detonate: s.padDetonate, blast: s.padBlast };
     document.body.classList.toggle("hc", s.highContrast);
   }
 
@@ -433,9 +440,9 @@ export class Game {
     const render = (data: { rows: BoardRow[]; mine: BoardRow | null } | null | "loading") => {
       const fmt = (r: BoardRow) => `<span class="k${r.me ? " me" : ""}">${String(r.rank).padStart(2, "0")} ${r.name}</span><span class="v${r.me ? " me" : ""}">${r.score.toLocaleString("en-US")}</span>`;
       const body =
-        data === "loading" ? `<div class="t-sub">Reading the boards…</div>`
-        : !data ? `<div class="t-sub">Boards unreachable · runs still rank later</div>`
-        : !data.rows.length ? `<div class="t-sub">${which === "daily" ? "No one has fallen today. Be first." : "No Endless runs ranked yet."}</div>`
+        data === "loading" ? `<div class="t-sub">·  ·  ·</div>`
+        : !data ? `<div class="t-sub">Offline</div>`
+        : !data.rows.length ? `<div class="t-sub">Empty</div>`
         : `<div class="t-stats t-board">${data.rows.map(fmt).join("")}${data.mine && !data.rows.some((r) => r.me) ? `<span class="k sep">···</span><span class="v sep"></span>${fmt(data.mine)}` : ""}</div>`;
       const rules = which === "daily" ? `${utcDay()} · first attempt counts` : "All acts unlocked · no assist";
       this.ui.show({
@@ -683,7 +690,7 @@ export class Game {
       // first launch → the five basics, then The Hundred, stage 1 (GDD §20, decisions 21 + 72)
       this.profile.data.firstLaunchDone = true;
       void this.profile.save();
-      this.showHowToPlay(basicCards(this.inputFamily()), 0, () => this.startStage(1), "Play");
+      this.showHowToPlay(basicCards(this.inputFamily(), this.padNames()), 0, () => this.startStage(1), "Play");
       return;
     }
     this.showMenu();
@@ -695,6 +702,12 @@ export class Game {
     return f === "keyboard" && this.touch ? "touch" : f;
   }
 
+  private padNames(): { mark: string; det: string; blast: string } {
+    const s = this.profile.settings.snapshot();
+    const short = (i: number) => padButtonName(i).split(" ")[0]!;
+    return { mark: short(s.padMark), det: short(s.padDetonate), blast: short(s.padBlast) };
+  }
+
   private showHowToMenu(): void {
     const fam = this.inputFamily();
     const act = this.actsCleared();
@@ -703,12 +716,12 @@ export class Game {
       title: "HOW TO PLAY",
       items: [
         { id: "basics", label: "The basics", detail: "5 cards" },
-        { id: "cubes", label: "Cubes", detail: `${cubeCards(fam, act).length} met` },
+        { id: "cubes", label: "Cubes", detail: `${cubeCards(fam, act, this.padNames()).length} met` },
         { id: "back", label: "Back" }
       ],
       onPick: (id) => {
-        if (id === "basics") this.showHowToPlay(basicCards(fam), 0, () => this.showHowToMenu());
-        else if (id === "cubes") this.showHowToPlay(cubeCards(fam, act), 0, () => this.showHowToMenu());
+        if (id === "basics") this.showHowToPlay(basicCards(fam, this.padNames()), 0, () => this.showHowToMenu());
+        else if (id === "cubes") this.showHowToPlay(cubeCards(fam, act, this.padNames()), 0, () => this.showHowToMenu());
         else this.showMenu();
       },
       onBack: () => this.showMenu()
@@ -855,6 +868,40 @@ export class Game {
     this.ui.show({ id: "confirm", title: question, items: [{ id: "no", label: "No" }, { id: "yes", label: "Yes" }], onPick: (id) => (id === "yes" ? yes() : no()), onBack: no });
   }
 
+  /** Gamepad remapping (DECISIONS #74): pick an action, press a button; a taken button swaps. */
+  private showControls(back: () => void, listening?: PadAction): void {
+    const s = this.profile.settings.snapshot();
+    const bound: Record<PadAction, number> = { padMark: s.padMark, padDetonate: s.padDetonate, padBlast: s.padBlast };
+    const row = (key: PadAction, label: string): MenuItem => ({ id: key, label, detail: listening === key ? `<span class="adj">press a button…</span>` : `<span class="adj">${padButtonName(bound[key])}</span>` });
+    this.ui.show({
+      id: "controls",
+      title: "CONTROLS",
+      body: `<div class="t-keys"><span class="k">Move</span><span class="v">Left stick</span><span class="k">Aim</span><span class="v">Right stick</span><span class="k">Recentre</span><span class="v">R3</span></div>`,
+      items: [row("padMark", "Mark"), row("padDetonate", "Detonate"), row("padBlast", "Blast"), { id: "defaults", label: "Defaults" }, { id: "back", label: "Back" }],
+      onPick: (id) => {
+        if (id === "back") back();
+        else if (id === "defaults") void this.profile.settings.patch({ padMark: 0, padDetonate: 2, padBlast: 3 }).then(() => this.showControls(back));
+        else {
+          const key = id as PadAction;
+          const focus = ["padMark", "padDetonate", "padBlast"].indexOf(key);
+          this.showControls(back, key);
+          this.ui.setFocus(focus);
+          // d-pad navigates, Start pauses, R3 recentres the cursor: never bindable
+          this.ui.captureButton((b) => {
+            if (this.ui.currentId !== "controls") return; // left the screen while listening
+            if (b !== null) {
+              const other = (Object.keys(bound) as PadAction[]).find((k) => k !== key && bound[k] === b);
+              void this.profile.settings.patch({ [key]: b, ...(other ? { [other]: bound[key] } : {}) } as Partial<TesseraSettings>);
+            }
+            this.showControls(back);
+            this.ui.setFocus(focus);
+          }, [8, 9, 11, 12, 13, 14, 15, 16]);
+        }
+      },
+      onBack: back
+    });
+  }
+
   private showSettings(back: () => void): void {
     const st = this.profile.settings;
     const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -894,11 +941,13 @@ export class Game {
         toggle("highContrast", "High contrast"),
         toggle("vibration", "Vibration"),
         { id: "scale", label: "UI scale", detail: `<span class="adj">◂ ${s.uiScale}% ▸</span>`, adjust: (d) => { const o = [100, 125, 150] as const; const i = Math.max(0, Math.min(2, o.indexOf(s.uiScale) + d)); void st.patch({ uiScale: o[i] }); this.showSettings(back); } },
+        { id: "controls", label: "Controls", detail: "gamepad" },
         { id: "reset", label: "Reset progress" },
         { id: "back", label: "Back" }
       ],
       onPick: (id) => {
         if (id === "back") back();
+        else if (id === "controls") this.showControls(() => this.showSettings(back));
         else if (id === "reset")
           this.confirm("Erase all progress?", () => this.confirm("This cannot be undone. Erase?", () => {
             void this.profile.saves.delete().then(() => this.profile.load()).then(() => back());
@@ -948,15 +997,6 @@ export class Game {
     this.devices.enabled = false;
     this.ui.showHud(false, false);
     this.music.setState("results");
-    const best = (() => {
-      if (w.purifies) return "You purified the ground.";
-      if (w.score.bestChain >= 3) return `A chain of ${w.score.bestChain}.`;
-      if (w.perfectSectors) return `${w.perfectSectors} perfect sector${w.perfectSectors > 1 ? "s" : ""}.`;
-      if (w.islands) return `${w.islands} island${w.islands > 1 ? "s" : ""} raised from the void.`;
-      if (w.beaconsCollected) return `${w.beaconsCollected} beacon${w.beaconsCollected > 1 ? "s" : ""} reached.`;
-      if (w.kills) return `${w.kills} tile${w.kills > 1 ? "s" : ""} earned.`;
-      return "Every tile is earned.";
-    })();
     const stats = (rows: Array<[string, string | number]>) => `<div class="t-stats">${rows.map(([k, v]) => `<span class="k">${k}</span><span class="v">${v}</span>`).join("")}</div>`;
     if (w.config.mode === "hundred") {
       const s = w.config.stage!;
@@ -966,7 +1006,7 @@ export class Game {
       this.ui.show({
         id: "results",
         title: `${String(s.id).padStart(3, "0")} · ${s.name.toUpperCase()}`,
-        body: `${cleared ? `<div class="t-rating">${["", "◇", "◆", "✦"][r]}</div>` : ""}<div class="t-lead">${best}</div>${stats([["Marks", `${w.marksPlaced} / par ${s.par}`], ["Score", w.score.total.toLocaleString("en-US")]])}`,
+        body: `${cleared ? `<div class="t-rating">${["", "◇", "◆", "✦"][r]}</div>` : ""}${stats([["Marks", `${w.marksPlaced}${cleared && r === 1 ? `<span class="t-next"> ◆ ${s.par}</span>` : ""}`], ["Score", w.score.total.toLocaleString("en-US")]])}`,
         items: [
           ...(cleared && next ? [{ id: "next", label: "Next" }] : []),
           { id: "retry", label: "Retry" },
@@ -986,7 +1026,7 @@ export class Game {
     this.ui.show({
       id: "results",
       title: w.config.mode === "daily" ? `DAILY · ${String(w.config.seed).replace("DAILY-", "")}` : "THE FALL",
-      body: `<div class="t-lead">${best}</div>${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 1 ? [["Best chain", w.score.bestChain] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${this.boardStatus !== "idle" ? `<div class="t-sub" data-board-status>${this.boardLine()}</div>` : ""}`,
+      body: `${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 2 ? [["Chain", w.score.bestChain] as [string, number]] : []), ...(w.perfectSectors ? [["Perfect", w.perfectSectors] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${this.boardStatus !== "idle" ? `<div class="t-sub" data-board-status>${this.boardLine()}</div>` : ""}`,
       items: [{ id: "retry", label: "Retry" }, { id: "share", label: "Share" }, { id: "menu", label: "Menu" }],
       onPick: (id) => (id === "retry" ? this.retry() : id === "share" ? void this.share() : this.showMenu()),
       onBack: () => this.showMenu()

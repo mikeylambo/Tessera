@@ -72,17 +72,24 @@ const sigil = (x: number, z: number, extra = "") => {
 };
 const svg = (inner: string) => `<svg class="t-howto-fig" viewBox="0 0 300 ${ROWS * C + 12}" role="img" aria-hidden="true">${STYLE}${inner}</svg>`;
 
-function controls(family: InputFamily) {
+export interface PadNames {
+  mark: string;
+  det: string;
+  blast: string;
+}
+const DEFAULT_PAD: PadNames = { mark: "A", det: "X", blast: "Y" };
+
+function controls(family: InputFamily, pad: PadNames = DEFAULT_PAD) {
   if (family === "touch")
     return { move: ["Move", "Swipe"], mark: ["Mark", "Tap a cell"], det: ["Detonate", "◈ Detonate button"], blast: ["Blast", "◆ button"] } as const;
   if (family === "gamepad")
-    return { move: ["Move", "Left stick / D-pad"], mark: ["Mark", "Aim right stick · A"], det: ["Detonate", "X"], blast: ["Blast", "Y"] } as const;
+    return { move: ["Move", "Left stick / D-pad"], mark: ["Mark", `Aim right stick · ${pad.mark}`], det: ["Detonate", pad.det], blast: ["Blast", pad.blast] } as const;
   return { move: ["Move", "WASD / Arrows"], mark: ["Mark", "Click a cell · J"], det: ["Detonate", "Right-click · K"], blast: ["Blast", "Space · L"] } as const;
 }
 
 /** The basics, in teaching order. */
-export function basicCards(family: InputFamily): HowToCard[] {
-  const k = controls(family);
+export function basicCards(family: InputFamily, pad?: PadNames): HowToCard[] {
+  const k = controls(family, pad);
   return [
     {
       id: "goal",
@@ -123,8 +130,8 @@ export function basicCards(family: InputFamily): HowToCard[] {
 }
 
 /** One card per cube type the player has met (unlocks follow the Hundred acts; GDD §17–18). */
-export function cubeCards(family: InputFamily, act: number): HowToCard[] {
-  const k = controls(family);
+export function cubeCards(family: InputFamily, act: number, pad?: PadNames): HowToCard[] {
+  const k = controls(family, pad);
   const ground = cells(rows(5, 6));
   const out: HowToCard[] = [
     { id: "stone", title: "STONE", line: "One detonation. Mark it before it passes you.", svg: svg(ground + `<g class="a-roll">${cube(3, 0)}</g>` + sigil(3, 2, "a-pop") + fig(3, 5)) }

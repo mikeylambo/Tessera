@@ -77,9 +77,6 @@ export function renderShareCard(inp: ShareCardInput): HTMLCanvasElement {
   g.fillStyle = "#e9e3d8";
   g.font = '400 36px "Jost Variable", "Jost", system-ui, sans-serif';
   g.fillText(inp.score.toLocaleString("en-US"), W / 2, H - 130);
-  g.fillStyle = "#4d4a44";
-  g.font = '400 22px "Jost Variable", "Jost", system-ui, sans-serif';
-  g.fillText("every tile is earned", W / 2, H - 60);
   return c;
 }
 

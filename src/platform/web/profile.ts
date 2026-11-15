@@ -59,6 +59,10 @@ export interface TesseraSettings extends CoreSettings {
   assistSpeed: boolean;
   highContrast: boolean;
   uiScale: 100 | 125 | 150;
+  /** Gamepad action buttons, standard-mapping indices (Settings → Controls). */
+  padMark: number;
+  padDetonate: number;
+  padBlast: number;
 }
 
 export const defaultSettings: TesseraSettings = {
@@ -70,7 +74,10 @@ export const defaultSettings: TesseraSettings = {
   hintSigils: true,
   assistSpeed: false,
   highContrast: false,
-  uiScale: 100
+  uiScale: 100,
+  padMark: 0,
+  padDetonate: 2,
+  padBlast: 3
 };
 
 export class ProfileStore {

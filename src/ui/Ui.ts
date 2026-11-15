@@ -70,6 +70,7 @@ const CSS = /* css */ `
 .t-board { min-width:min(360px, 92vw); font-variant-numeric:tabular-nums; }
 .t-board .me { color:var(--amber); }
 .t-board .sep { color:var(--dim); text-align:center; }
+.t-next { color:var(--dim); font-size:0.85em; }
 .t-lead { color:var(--amber); letter-spacing:0.16em; margin:0 0 18px; text-align:center; }
 .t-rating { font-size:2.2em; color:var(--amber); letter-spacing:0.4em; margin:0 0 14px; text-indent:0.4em; }
 .t-notice { position:absolute; left:50%; top:52px; transform:translateX(-50%); color:var(--dim); font-size:11px; letter-spacing:0.12em; opacity:0; transition:opacity 500ms; }
@@ -262,9 +263,26 @@ export class Ui {
   };
 
   /** Gamepad menu navigation (D-pad / stick, A confirm, B back). */
+  /** Next fresh gamepad button press goes to `cb` instead of menu navigation (button remapping). */
+  captureButton(cb: (button: number | null) => void, exclude: readonly number[]): void {
+    this.capture = { cb, exclude, until: performance.now() + 6000 };
+  }
+
+  private capture: { cb: (button: number | null) => void; exclude: readonly number[]; until: number } | null = null;
+
   pollPad(): void {
     if (!this.spec) return;
     const pad = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find((p) => p && p.connected);
+    if (this.capture) {
+      const c = this.capture;
+      const hit = pad ? pad.buttons.findIndex((x, i) => x.pressed && !this.padPrev[i] && !c.exclude.includes(i)) : -1;
+      if (hit >= 0 || performance.now() > c.until) {
+        this.capture = null;
+        c.cb(hit >= 0 ? hit : null);
+      }
+      if (pad) this.padPrev = pad.buttons.map((x) => x.pressed);
+      return;
+    }
     if (!pad) return;
     const b = (i: number) => !!pad.buttons[i]?.pressed;
     const edge = (i: number) => b(i) && !this.padPrev[i];

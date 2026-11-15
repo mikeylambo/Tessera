@@ -32,6 +32,12 @@ export class Devices {
   private padPrev: boolean[] = [];
   private padDir: Dir = 0;
   private padRepeat = 0;
+  /** Gamepad action buttons (standard mapping indices), remappable in Settings → Controls (DECISIONS #74). */
+  padBindings = { mark: 0, detonate: 2, blast: 3 };
+  /** Right-stick cursor: an offset from the figure, nudged one cell per flick (DECISIONS #73). */
+  private padAim: { dx: number; dz: number } | null = null;
+  private stickDir = "";
+  private stickHeld = 0;
   private touchStart: { x: number; y: number; t: number; id: number } | null = null;
   private swipeHeld: Dir = 0;
   private touchCount = 0;
@@ -178,9 +184,46 @@ export class Devices {
     this.pick = i;
   }
 
+  /**
+   * Right stick as a cell cursor, not an analog pointer: past a firm deadzone (0.55, released below 0.35) the stick
+   * picks one of 8 directions; the first frame steps one cell, holding repeats after 14 f then every 7 f. The
+   * cursor is kept as an offset from the figure (it walks with you), clamped to Reach and the 7 columns.
+   */
+  private stepStick(rx: number, ry: number): void {
+    const mag = Math.hypot(rx, ry);
+    if (mag < (this.stickDir ? 0.35 : 0.55)) {
+      this.stickDir = "";
+      this.stickHeld = 0;
+      return;
+    }
+    const a = Math.atan2(-ry, rx);
+    const oct = (Math.round(a / (Math.PI / 4)) + 8) % 8;
+    const dx = [1, 1, 0, -1, -1, -1, 0, 1][oct]!;
+    const dz = [0, 1, 1, 1, 0, -1, -1, -1][oct]!;
+    const key = `${dx},${dz}`;
+    if (key !== this.stickDir) {
+      this.stickDir = key;
+      this.stickHeld = 0;
+    } else this.stickHeld++;
+    const fire = this.stickHeld === 0 || (this.stickHeld >= 14 && (this.stickHeld - 14) % 7 === 0);
+    if (!fire) return;
+    const r = this.ctx.reach();
+    const p = this.ctx.player();
+    const cur = this.padAim ?? { dx: 0, dz: 1 };
+    const nx = Math.max(-r, Math.min(r, cur.dx + dx));
+    const ndz = Math.max(-r, Math.min(r, cur.dz + dz));
+    // keep the cell on the board's 7 columns
+    this.padAim = { dx: Math.max(-p.x, Math.min(6 - p.x, nx)), dz: ndz };
+    this.aim = null;
+  }
+
   /** The aimed cell: mouse/stick/tap if recent, else the tile directly ahead (GDD §7). */
   cursor(): Cell {
     const p = this.ctx.player();
+    if (this.family === "gamepad") {
+      const o = this.padAim ?? { dx: 0, dz: 1 };
+      return { x: Math.max(0, Math.min(6, p.x + o.dx)), z: p.z + o.dz };
+    }
     const fresh = this.aim && (this.family === "keyboard" ? performance.now() - this.aimAt < 4000 : this.family !== "touch" || performance.now() - this.aimAt < 1500);
     if (fresh && this.aim) return this.aim;
     return { x: p.x, z: p.z + 1 };
@@ -206,23 +249,16 @@ export class Devices {
     else if (b(14)) d = 4;
     else if (b(15)) d = 2;
     else if (Math.hypot(lx, ly) > 0.25) d = Math.abs(lx) > Math.abs(ly) ? (lx > 0 ? 2 : 4) : ly > 0 ? 3 : 1;
-    const any = d !== 0 || pad.buttons.some((x) => x.pressed);
+    const any = d !== 0 || pad.buttons.some((x) => x.pressed) || Math.hypot(pad.axes[2] ?? 0, pad.axes[3] ?? 0) > 0.55;
     if (any) this.setFamily("gamepad");
     if (this.enabled) {
       if (d && d !== this.padDir) this.presses.push(d);
       this.padDir = d;
-      // right stick aims within Reach relative to the figure
-      const rx = pad.axes[2] ?? 0;
-      const ry = pad.axes[3] ?? 0;
-      if (Math.hypot(rx, ry) > 0.25) {
-        const p = this.ctx.player();
-        const r = this.ctx.reach();
-        this.aim = { x: Math.max(0, Math.min(6, p.x + Math.round(rx * r))), z: p.z + Math.round(-ry * r) };
-        this.aimAt = performance.now();
-      }
-      if (edge(0)) this.marks.push(this.cursor());
-      if (edge(2)) this.detonate = true;
-      if (edge(3)) this.blast = true;
+      this.stepStick(pad.axes[2] ?? 0, pad.axes[3] ?? 0);
+      if (edge(11)) this.padAim = { dx: 0, dz: 1 }; // R3: recentre on the tile ahead
+      if (edge(this.padBindings.mark)) this.marks.push(this.cursor());
+      if (edge(this.padBindings.detonate)) this.detonate = true;
+      if (edge(this.padBindings.blast)) this.blast = true;
     }
     if (edge(9)) this.onPause();
     this.padPrev = pad.buttons.map((x) => x.pressed);
@@ -256,6 +292,7 @@ export class Devices {
   }
 
   clear(): void {
+    this.padAim = null;
     this.presses = [];
     this.marks = [];
     this.detonate = this.blast = false;
