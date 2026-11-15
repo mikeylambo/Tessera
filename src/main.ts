@@ -1,3 +1,5 @@
+import "@fontsource-variable/jost/wght.css";
+import "@fontsource/cinzel/400.css";
 import { warmFairnessSearch } from "./sim/Fairness";
 import "@fontsource/cinzel/400.css";
 import "@fontsource/jetbrains-mono/400.css";

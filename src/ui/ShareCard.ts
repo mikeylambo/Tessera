@@ -69,16 +69,16 @@ export function renderShareCard(inp: ShareCardInput): HTMLCanvasElement {
   g.font = '64px "Cinzel", serif';
   g.fillText("T E S S E R A", W / 2, 140);
   g.fillStyle = "#8a8478";
-  g.font = '26px "JetBrains Mono", monospace';
+  g.font = '400 26px "Jost Variable", "Jost", system-ui, sans-serif';
   g.fillText(inp.label.toUpperCase(), W / 2, 190);
   g.fillStyle = "#ffb347";
-  g.font = '44px "JetBrains Mono", monospace';
+  g.font = '400 44px "Jost Variable", "Jost", system-ui, sans-serif';
   g.fillText(`DEPTH ${inp.depth}`, W / 2, H - 190);
   g.fillStyle = "#e9e3d8";
-  g.font = '36px "JetBrains Mono", monospace';
+  g.font = '400 36px "Jost Variable", "Jost", system-ui, sans-serif';
   g.fillText(inp.score.toLocaleString("en-US"), W / 2, H - 130);
   g.fillStyle = "#4d4a44";
-  g.font = '22px "JetBrains Mono", monospace';
+  g.font = '400 22px "Jost Variable", "Jost", system-ui, sans-serif';
   g.fillText("every tile is earned", W / 2, H - 60);
   return c;
 }

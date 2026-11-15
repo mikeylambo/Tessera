@@ -1,3 +1,4 @@
+import { HOWTO_CSS } from "./HowToPlay";
 /**
  * Tessera's DOM UI (GDD §20–21): minimal, one decision per screen, thin etched lines, squares, no pills.
  * Keyboard / gamepad / mouse / touch navigable. Screen controllers own UI state only (GDD §30).
@@ -25,12 +26,12 @@ export interface ScreenSpec {
 
 const CSS = /* css */ `
 :root { --void:#050608; --ink:#e9e3d8; --dim:#8a8478; --line:rgba(233,227,216,0.22); --amber:#ffb347; --violet:#8b5cf6; --emerald:#2fd38a; --ui-scale:1; }
-#ui { position:fixed; inset:0; pointer-events:none; font-family:"JetBrains Mono", ui-monospace, monospace; color:var(--ink); font-size:calc(14px * var(--ui-scale)); -webkit-user-select:none; user-select:none; }
+#ui { position:fixed; inset:0; pointer-events:none; font-family:"Jost Variable", "Jost", system-ui, -apple-system, "Segoe UI", sans-serif; font-weight:400; font-feature-settings:"tnum" 1; color:var(--ink); font-size:calc(14px * var(--ui-scale)); -webkit-user-select:none; user-select:none; }
 #ui * { box-sizing:border-box; }
 .t-screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; background:radial-gradient(ellipse at 50% 40%, rgba(5,6,8,0.55), rgba(5,6,8,0.92)); opacity:0; transition:opacity 200ms ease; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
 .t-screen.on { opacity:1; }
 .t-screen.clear { background:transparent; }
-.t-title { font-family:"Cinzel", serif; font-weight:400; letter-spacing:0.42em; text-indent:0.42em; font-size:calc(26px * var(--ui-scale)); color:var(--ink); margin:0 0 6px; text-shadow:0 0 18px rgba(255,179,71,0.18); text-align:center; }
+.t-title { font-family:"Cinzel", "Trajan Pro", Georgia, serif; font-weight:400; letter-spacing:0.42em; text-indent:0.42em; font-size:calc(26px * var(--ui-scale)); color:var(--ink); margin:0 0 6px; text-shadow:0 0 18px rgba(255,179,71,0.18); text-align:center; }
 .t-sub { color:var(--dim); letter-spacing:0.2em; font-size:calc(11px * var(--ui-scale)); margin:0 0 26px; text-transform:uppercase; text-align:center; }
 .t-body { max-width:520px; color:var(--ink); line-height:1.7; text-align:center; margin:0 0 22px; opacity:0.9; }
 .t-list { display:flex; flex-direction:column; gap:6px; min-width:min(360px, 92vw); }
@@ -47,7 +48,7 @@ const CSS = /* css */ `
 .t-cards .t-item { width:min(200px, 28vw); min-width:150px; min-height:170px; flex-direction:column; justify-content:center; text-align:center; gap:10px; }
 .t-cards .t-item .g { font-size:2.2em; color:var(--amber); letter-spacing:0; }
 .t-press { animation:t-breathe 2.6s ease-in-out infinite; color:var(--dim); letter-spacing:0.3em; text-transform:uppercase; font-size:calc(11px * var(--ui-scale)); }
-.t-hero { font-family:"Cinzel", serif; font-size:calc(min(13vw, 76px) * var(--ui-scale)); letter-spacing:0.5em; text-indent:0.5em; color:#d9d2c5; text-shadow:0 0 40px rgba(255,179,71,0.25), 0 1px 0 rgba(0,0,0,0.9); margin:0 0 30px; animation:t-etch 3s ease forwards; opacity:0; }
+.t-hero { font-family:"Cinzel", "Trajan Pro", Georgia, serif; font-size:calc(min(13vw, 76px) * var(--ui-scale)); letter-spacing:0.5em; text-indent:0.5em; color:#d9d2c5; text-shadow:0 0 40px rgba(255,179,71,0.25), 0 1px 0 rgba(0,0,0,0.9); margin:0 0 30px; animation:t-etch 3s ease forwards; opacity:0; }
 @keyframes t-etch { 0% { opacity:0; letter-spacing:0.9em; filter:blur(6px); } 100% { opacity:1; letter-spacing:0.5em; filter:blur(0); } }
 @keyframes t-breathe { 0%,100% { opacity:0.35; } 50% { opacity:0.9; } }
 .t-hud { position:absolute; inset:0; pointer-events:none; }
@@ -56,7 +57,7 @@ const CSS = /* css */ `
 .t-score.pulse { color:rgba(255,200,130,0.85); text-shadow:0 0 18px rgba(255,179,71,0.5); transition:none; }
 .t-runes { position:absolute; left:max(16px, env(safe-area-inset-left)); bottom:max(14px, env(safe-area-inset-bottom)); display:flex; gap:6px; }
 .t-runes span { width:26px; height:26px; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--amber); font-size:14px; }
-.t-sub-line { position:absolute; left:50%; bottom:18%; transform:translateX(-50%); font-family:"Cinzel", serif; letter-spacing:0.3em; color:rgba(233,227,216,0.75); opacity:0; transition:opacity 600ms; font-size:calc(16px * var(--ui-scale)); white-space:nowrap; }
+.t-sub-line { position:absolute; left:50%; bottom:18%; transform:translateX(-50%); font-family:"Cinzel", "Trajan Pro", Georgia, serif; letter-spacing:0.3em; color:rgba(233,227,216,0.75); opacity:0; transition:opacity 600ms; font-size:calc(16px * var(--ui-scale)); white-space:nowrap; }
 .t-sub-line.on { opacity:1; }
 .t-touch { position:absolute; right:max(16px, env(safe-area-inset-right)); bottom:max(16px, env(safe-area-inset-bottom)); display:none; flex-direction:column; gap:12px; align-items:flex-end; pointer-events:auto; }
 .t-touch.on { display:flex; }
@@ -111,7 +112,7 @@ export class Ui {
   constructor(root: HTMLElement) {
     this.root = root;
     const style = document.createElement("style");
-    style.textContent = CSS;
+    style.textContent = CSS + HOWTO_CSS;
     document.head.appendChild(style);
     this.hud = this.el("div", "t-hud");
     this.sectorEl = this.el("div", "t-sector", this.hud);

@@ -706,7 +706,7 @@ Built on the Web Shell flow; differences: first launch skips the menu; loss repl
 | Glyphs | Blast charges | Small glyphs orbiting the figure | When ≥ 1 |
 | Crumble | Timer | Rear row glow + hum | Last 30 f |
 | Score | Score | Faintly etched into the fog plane above the horizon | Always, pulses on gain |
-| Sector · Depth | Progress | Small top-left monospace | Endless/Daily |
+| Sector · Depth | Progress | Small top-left, tabular numerals | Endless/Daily |
 | Runes | Build | Icons bottom-left | Always (tooltips on pause) |
 | Touch buttons | Detonate, Blast | Bottom-right | Touch only |
 
@@ -714,7 +714,7 @@ Built on the Web Shell flow; differences: first launch skips the menu; loss repl
 
 ### UI Style
 - **Shape language:** thin etched lines, squares, no rounded pills
-- **Typography:** JetBrains Mono (numerals); Cinzel or similar engraved serif (titles)
+- **Typography:** Jost (UI, numerals, tabular) · Cinzel (titles), both self-hosted (DECISIONS #71)
 - **Motion:** slow fades, 12 f eases; menus rise like tiles
 - **Sound:** glass ticks
 - **Menu philosophy:** minimal, one decision per screen

@@ -1,5 +1,6 @@
 import { World, type WorldConfig } from "../sim/World";
 import { composeName, fetchBoard, newIdentity, submit, NAME_A, NAME_B, type BoardRow, type SubmitResult } from "../platform/web/leaderboard";
+import { basicCards, cardBody, cubeCards, type HowToCard } from "../ui/HowToPlay";
 import { InputRecorder, InputPlayer, resimulate } from "../sim/Replay";
 import { NO_INPUT, type FrameInput } from "../sim/types";
 import type { SimEvent } from "../sim/Events";
@@ -679,13 +680,62 @@ export class Game {
       return;
     }
     if (!this.profile.data.firstLaunchDone) {
-      // first launch → The Hundred, stage 1, directly (GDD §20, decision 21)
+      // first launch → the five basics, then The Hundred, stage 1 (GDD §20, decisions 21 + 72)
       this.profile.data.firstLaunchDone = true;
       void this.profile.save();
-      this.startStage(1);
+      this.showHowToPlay(basicCards(this.inputFamily()), 0, () => this.startStage(1), "Play");
       return;
     }
     this.showMenu();
+  }
+
+  /** The device in hand: a phone that hasn't been touched yet still reads as touch. */
+  private inputFamily(): "keyboard" | "gamepad" | "touch" {
+    const f = this.devices.family;
+    return f === "keyboard" && this.touch ? "touch" : f;
+  }
+
+  private showHowToMenu(): void {
+    const fam = this.inputFamily();
+    const act = this.actsCleared();
+    this.ui.show({
+      id: "howto-menu",
+      title: "HOW TO PLAY",
+      items: [
+        { id: "basics", label: "The basics", detail: "5 cards" },
+        { id: "cubes", label: "Cubes", detail: `${cubeCards(fam, act).length} met` },
+        { id: "back", label: "Back" }
+      ],
+      onPick: (id) => {
+        if (id === "basics") this.showHowToPlay(basicCards(fam), 0, () => this.showHowToMenu());
+        else if (id === "cubes") this.showHowToPlay(cubeCards(fam, act), 0, () => this.showHowToMenu());
+        else this.showMenu();
+      },
+      onBack: () => this.showMenu()
+    });
+  }
+
+  /** Paged cards: one idea per screen; ◂ ▸ / Next to page, Back steps back, the last card's button finishes. */
+  private showHowToPlay(cards: HowToCard[], i: number, done: () => void, doneLabel = "Done"): void {
+    this.phase = "menu";
+    this.devices.enabled = false;
+    this.ui.showHud(false, false);
+    const card = cards[i]!;
+    const last = i === cards.length - 1;
+    const dots = cards.length > 1 ? `<div class="t-dots">${cards.map((_, j) => `<i class="${j === i ? "on" : ""}"></i>`).join("")}</div>` : "";
+    const go = (n: number) => this.showHowToPlay(cards, Math.max(0, Math.min(cards.length - 1, n)), done, doneLabel);
+    this.ui.show({
+      id: "howto",
+      title: card.title,
+      body: dots + cardBody(card),
+      items: [
+        { id: "next", label: last ? doneLabel : "Next", detail: last ? "" : `${i + 1} / ${cards.length}`, adjust: (d) => (d > 0 && last ? done() : go(i + d)) }, // Ui confirms adjust rows via adjust(+1)
+        ...(i > 0 ? [{ id: "prev", label: "Back" }] : []),
+        ...(!last ? [{ id: "skip", label: doneLabel === "Play" ? "Skip" : "Close" }] : [])
+      ],
+      onPick: (id) => (id === "next" ? (last ? done() : go(i + 1)) : id === "prev" ? go(i - 1) : done()),
+      onBack: () => (i > 0 ? go(i - 1) : done())
+    });
   }
 
   showMenu(): void {
@@ -701,6 +751,7 @@ export class Game {
       { id: "endless", label: "Endless", detail: unlocked ? (this.profile.data.bestDepth ? `depth ${this.profile.data.bestDepth}` : "") : "after Act I", disabled: !unlocked },
       { id: "daily", label: "Daily Tessera", detail: unlocked ? utcDay() : "after Act I", disabled: !unlocked },
       { id: "boards", label: "Boards", detail: unlocked ? this.playerName : "after Act I", disabled: !unlocked },
+      { id: "howto", label: "How to Play" },
       { id: "settings", label: "Settings" },
       { id: "credits", label: "Credits" }
     );
@@ -714,6 +765,7 @@ export class Game {
         else if (id === "endless") this.startEndless();
         else if (id === "daily") this.startDaily();
         else if (id === "boards") this.showBoards();
+        else if (id === "howto") this.showHowToMenu();
         else if (id === "settings") this.showSettings(() => this.showMenu());
         else if (id === "credits") this.showCredits();
       }
@@ -861,7 +913,7 @@ export class Game {
       id: "credits",
       title: "TESSERA",
       subtitle: "Wavelength Game Design",
-      body: "Design · Michael<br>Built with Claude on the SLU Web Shell<br>Three.js · Cinzel · JetBrains Mono",
+      body: "Design · Michael<br>Built with Claude on the SLU Web Shell<br>Three.js · Cinzel · Jost",
       items: [{ id: "back", label: "Back" }],
       onPick: () => this.showMenu(),
       onBack: () => this.showMenu()
@@ -950,6 +1002,7 @@ export class Game {
   }
 
   private async share(): Promise<void> {
+    await document.fonts.ready; // the card is drawn on a canvas: make sure Jost/Cinzel are in
     const card = this.shareCard();
     const w = this.world;
     if (!card || !w) return;

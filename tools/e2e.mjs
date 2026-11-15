@@ -88,8 +88,15 @@ try {
     check(errors.length === 0, `zero console errors at boot (${errors.length}) ${errors.slice(0, 3).join(" | ")}`);
 
     await page.keyboard.press("Enter");
+    // first launch: five How to Play cards (DECISIONS #72), then stage 1
+    const howto = await waitFor(page, () => document.querySelector('[data-screen="howto"]') !== null);
+    check(howto, "first launch shows How to Play");
+    for (let i = 0; i < 5; i++) {
+      await sleep(260); // menu guard (12 f)
+      await page.keyboard.press("Enter");
+    }
     const inStage = await waitFor(page, () => window.__GAME.state().phase === "playing" && window.__GAME.state().stage === 1);
-    check(inStage, "first launch routes Title → The Hundred stage 1");
+    check(inStage, "first launch routes Title → How to Play → The Hundred stage 1");
     await page.evaluate(() => window.__GAME.manual(true));
     // scripted: wait for the Stone to reach z = 4 (first row beyond the slab), mark it, detonate
     const reached = await page.evaluate(() => {

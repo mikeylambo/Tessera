@@ -24,7 +24,8 @@
     "build:edge": "esbuild supabase/functions/tessera-submit/sim.entry.ts --bundle --format=esm --platform=neutral --main-fields=module,main --minify --outfile=supabase/functions/tessera-submit/sim.js"
   },
   "dependencies": {
-    "@fontsource/cinzel": "^5.2.6",
+    "@fontsource-variable/jost": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.2.6",
     "@slu/web-shell": "file:vendor/slu-web-shell",
     "three": "^0.187.0"
