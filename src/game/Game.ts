@@ -1,5 +1,6 @@
 import { World, type WorldConfig } from "../sim/World";
-import { composeName, fetchBoard, newIdentity, submit, NAME_A, NAME_B, type BoardRow, type SubmitResult } from "../platform/web/leaderboard";
+import { composeName, fetchBoard, fetchRun, fetchTopRun, newIdentity, submit, NAME_A, NAME_B, type BoardRow, type RunRow, type SubmitResult } from "../platform/web/leaderboard";
+import { dailyDay, dailyIndex, fmtCountdown, msToNextDaily, nextStreak, shareText, silhouette, traceRun, RUN_ID } from "../share/daily";
 import { basicCards, cardBody, cubeCards, type HowToCard } from "../ui/HowToPlay";
 import { InputRecorder, InputPlayer, resimulate } from "../sim/Replay";
 import { NO_INPUT, type FrameInput } from "../sim/types";
@@ -80,7 +81,7 @@ export class Game {
   private last = 0;
   private alpha = 0;
   private config: WorldConfig | null = null;
-  private replay: { world: World; player: InputPlayer; end: number; speed: number; acc: number; cause: string } | null = null;
+  private replay: { world: World; player: InputPlayer; end: number; speed: number; acc: number; cause: string; link?: RunRow } | null = null;
   private pendingPick = -1;
   private formationsSeen = 0;
   private ranked = false;
@@ -94,6 +95,9 @@ export class Game {
   manual = false;
   /** Dev/evidence: the realtime loop stops rendering; `__GAME.advance()` renders instead. */
   viewFrozen = false;
+  get hasBot(): boolean {
+    return this.bot !== null;
+  }
   lastEvents: SimEvent[] = [];
   /** Every cell the run has held ground on (share card silhouette; presentation-side). */
   trail = new Map<number, { x: number; z: number; start?: boolean }>();
@@ -166,6 +170,18 @@ export class Game {
     const unlockOnGesture = () => this.audio.unlock();
     window.addEventListener("pointerdown", unlockOnGesture, { once: true });
     window.addEventListener("keydown", unlockOnGesture, { once: true });
+    const qs = new URLSearchParams(location.search);
+    const route = /^\/(r|d)\/([0-9a-z]+)\/?$/.exec(location.pathname) ?? (qs.get("r") ? [null, "r", qs.get("r")!] : qs.get("d") ? [null, "d", qs.get("d")!] : null);
+    if (route) {
+      this.audio.unlock();
+      if (route[1] === "r") void this.openReplayLink(route[2]!);
+      else {
+        const n = Number(route[2]);
+        const day = Number.isInteger(n) && n >= 1 ? dailyDay(n) : utcDay();
+        this.startDaily(day <= utcDay() ? day : utcDay());
+      }
+      return;
+    }
     if (f.quick || f.stage || f.sector || f.daily) {
       if (f.stage) this.startStage(f.stage);
       else if (f.daily) this.startDaily(f.daily, false);
@@ -223,7 +239,7 @@ export class Game {
     if (!this.viewFrozen) this.view.frame(this.phase === "playing" ? this.alpha : 0, dt);
     const w = this.phase === "replay" ? this.replay?.world : this.world;
     if (w && (this.phase === "playing" || this.phase === "replay")) {
-      this.music.update({ frame: w.frame, alpha: this.alpha, tick: w.tick, f: w.f, tickLen: w.tickLen, formationsSeen: this.formationsSeen, groundRows: this.groundRows(w), lastStand: w.lastStand.active });
+      this.music.update({ frame: w.frame, alpha: this.alpha, tick: w.tick, f: w.f, tickLen: w.tickLen, formationsSeen: this.formationsSeen, groundRows: this.groundRows(w), ground: w.connected().length, lastStand: w.lastStand.active });
       this.updateHud(w);
     }
     this.sampleFps(dt);
@@ -240,12 +256,34 @@ export class Game {
     }
     this.recorder.record(w.frame, input);
     w.step(input);
+    this.stepGhost(w.frame);
     this.stepsThisRun++;
     const events = w.events.drain();
     this.lastEvents = events;
     this.onEvents(events, w);
     if (w.runeOffers && this.phase === "playing") this.openRunes();
     if (w.ended) this.onRunEnded();
+  }
+
+  // ───────────────────────────────── ghost (brief §3.3) ─────────────────────────────────
+  /** A validated run raced as a ghost; armed for the next Daily of its seed. Off unless the player chooses it. */
+  private ghostSrc: RunRow | null = null;
+  private ghost: { world: World; player: InputPlayer } | null = null;
+
+  private stepGhost(frame: number): void {
+    const g = this.ghost;
+    if (!g) return;
+    while (g.world.frame < frame && !g.world.ended) {
+      g.world.step(g.player.next(g.world.frame));
+      g.world.events.drain();
+    }
+  }
+
+  private armGhost(config: WorldConfig): void {
+    const src = this.ghostSrc;
+    this.ghost = null;
+    if (src && config.mode === "daily" && config.seed === src.seed) this.ghost = { world: new World({ mode: "daily", seed: src.seed }), player: new InputPlayer(src.entries) };
+    this.view.ghostWorld = this.ghost?.world ?? null;
   }
 
   private onEvents(events: SimEvent[], w: World): void {
@@ -258,6 +296,7 @@ export class Game {
         this.ui.subtitle(LINES[e.line], s.subtitles, e.line === "again");
       } else if (e.t === "CubeSpawn" && e.id && events.indexOf(e) === events.findIndex((x) => x.t === "CubeSpawn")) this.formationsSeen++;
       else if (e.t === "Kill") this.buzz(e.chain >= 3 ? "chain" : "kill");
+      else if (e.t === "Chain") this.music.onChain();
       else if (e.t === "Blast") this.buzz("blast");
       else if (e.t === "Crush") this.buzz("crush");
       else if (e.t === "Crumble") this.buzz("crumble");
@@ -314,6 +353,7 @@ export class Game {
     this.boardStatus = "idle";
     this.world = new World(config);
     this.view.attach(this.world);
+    this.armGhost(config);
     this.recorder.reset();
     this.trail = new Map(this.world.grid.list().map((t) => [t.z * 8 + t.x, { x: t.x, z: t.z, start: true }]));
     this.formationsSeen = 0;
@@ -356,7 +396,7 @@ export class Game {
   }
 
   startDaily(day = utcDay(), allowRanked = true): void {
-    const ranked = allowRanked && !this.profile.data.dailyRanked[day];
+    const ranked = allowRanked && day === utcDay() && !this.profile.data.dailyRanked[day];
     this.begin({ mode: "daily", seed: `DAILY-${day}` }, ranked);
   }
 
@@ -417,8 +457,11 @@ export class Game {
           if (this.boardStatus === "pending") this.boardStatus = "offline";
           break;
         }
-        q.shift();
-        if (r !== "rejected") this.boardStatus = r;
+        const sent = q.shift()!;
+        if (r !== "rejected") {
+          this.boardStatus = r;
+          if (r.run && sent.mode === "daily") this.profile.data.dailyRuns[sent.seed.replace("DAILY-", "")] = r.run;
+        }
         await this.profile.save();
       }
     } finally {
@@ -492,6 +535,10 @@ export class Game {
       p.bestDepth = Math.max(p.bestDepth, w.depthRow);
       p.bestScore = Math.max(p.bestScore, w.score.total);
       for (const [d, name] of [[100, "dawn"], [250, "rust"], [500, "abyssal"]] as const) if (w.depthRow >= d && !p.palettes.includes(name)) p.palettes.push(name);
+    }
+    if (w.config.mode === "daily") {
+      const day = String(w.config.seed).replace("DAILY-", "");
+      if (day === utcDay()) p.dailyStreak = nextStreak(p.dailyStreak, day);
     }
     if (w.config.mode === "daily" && this.ranked) {
       const day = String(w.config.seed).replace("DAILY-", "");
@@ -593,11 +640,20 @@ export class Game {
       this.view.handle(ev);
     }
     this.alpha = r.acc;
-    this.view.feel.extraUp = 8;
+    this.view.feel.extraUp = r.link ? 0 : 8;
   }
 
   skipReplay(): void {
     if (this.phase !== "replay") return;
+    const link = this.replay?.link;
+    if (link) {
+      this.replaySkip?.();
+      this.replaySkip = null;
+      this.lastLinkFinal = { hash: this.replay!.world.stateHash(), score: this.replay!.world.score.total, frame: this.replay!.world.frame };
+      this.replay = null;
+      this.showLinkEnd(link);
+      return;
+    }
     this.view.overlay.cause = null;
     this.replaySkip?.();
     this.replaySkip = null;
@@ -605,6 +661,119 @@ export class Game {
     this.view.feel.extraUp = 0;
     if (this.world) this.view.attach(this.world);
     this.showResults();
+  }
+
+  // ───────────────────────────────── replay links (brief §3.2) ─────────────────────────────────
+  /** Verification of the last opened link: did the log reproduce the server's hash and score? */
+  lastLinkVerdict: { ok: boolean; reason: string; hash?: string; score?: number } | null = null;
+  /** Final state of the last link playback (E2E compares it with the original run). */
+  lastLinkFinal: { hash: string; score: number; frame: number } | null = null;
+
+  /** `/r/<id>`: fetch the validated log, verify it in the real sim, then play it back at 1× / 2×. */
+  async openReplayLink(id: string): Promise<void> {
+    const fail = (reason: string) => {
+      this.lastLinkVerdict = { ok: false, reason };
+      this.ui.notice(reason);
+      this.showMenu();
+    };
+    if (!RUN_ID.test(id)) return fail("Unknown run.");
+    this.phase = "menu";
+    this.ui.show({ id: "link", title: "TESSERA", items: [], body: `<div class="t-sub">·  ·  ·</div>`, onPick: () => undefined });
+    const row = await fetchRun(id);
+    if (!row || row.id !== id) return fail("Run not found.");
+    let ok = false;
+    try {
+      const t = traceRun({ mode: "daily", seed: row.seed }, row.entries, row.frames);
+      ok = t.hash === row.hash && t.world.score.total === row.score && t.world.ended;
+    } catch {
+      ok = false;
+    }
+    if (!ok) return fail("This run doesn't verify.");
+    this.lastLinkVerdict = { ok: true, reason: "", hash: row.hash, score: row.score };
+    const rw = new World({ mode: "daily", seed: row.seed });
+    this.view.attach(rw);
+    this.replay = { world: rw, player: new InputPlayer(row.entries), end: row.frames, speed: 1, acc: 0, cause: "", link: row };
+    this.phase = "replay";
+    this.replayLast = 0;
+    this.music.resetClock();
+    this.music.setState("play");
+    this.ui.showHud(false, false);
+    this.paintLinkUi(row);
+  }
+
+  private paintLinkUi(row: RunRow): void {
+    const r = this.replay;
+    if (!r) return;
+    const idx = dailyIndex(row.day || row.seed.replace("DAILY-", ""));
+    this.ui.show({
+      id: "replay-link",
+      className: "clear",
+      body: `<div class="why">${row.name} · Daily #${idx}</div>`,
+      items: [
+        { id: "speed", label: r.speed === 1 ? "2×" : "1×" },
+        { id: "skip", label: "Skip" }
+      ],
+      onPick: (k) => {
+        this.audio.unlock();
+        if (k === "speed" && this.replay) {
+          this.replay.speed = this.replay.speed === 1 ? 2 : 1;
+          this.paintLinkUi(row);
+        } else if (k === "skip") this.finishLink();
+      },
+      onBack: () => this.finishLink()
+    });
+  }
+
+  /** Skip runs the remaining frames instantly, so the end state is always the real final state. */
+  private finishLink(): void {
+    const r = this.replay;
+    if (!r) return;
+    while (r.world.frame < r.end && !r.world.ended) {
+      r.world.step(r.player.next(r.world.frame));
+      r.world.events.drain();
+    }
+    this.skipReplay();
+  }
+
+  private showLinkEnd(row: RunRow): void {
+    const day = row.day || row.seed.replace("DAILY-", "");
+    const today = utcDay();
+    this.phase = "results";
+    this.music.setState("results");
+    const stats = `<div class="t-stats"><span class="k">Depth</span><span class="v">${row.depth}</span><span class="k">Score</span><span class="v">${row.score.toLocaleString("en-US")}</span></div>`;
+    this.ui.show({
+      id: "link-end",
+      title: `DAILY #${dailyIndex(day)}`,
+      subtitle: row.name,
+      body: stats,
+      items: [
+        { id: "play", label: "Play today's Daily" },
+        ...(day === today ? [{ id: "race", label: "Race this run", detail: "ghost" }] : []),
+        { id: "menu", label: "Menu" }
+      ],
+      onPick: (k) => {
+        this.audio.unlock();
+        if (k === "play") {
+          this.ghostSrc = null;
+          this.startDaily();
+        } else if (k === "race") {
+          this.ghostSrc = row;
+          this.startDaily();
+        } else this.showMenu();
+      },
+      onBack: () => this.showMenu()
+    });
+  }
+
+  /** Daily menu: race the day's #1 validated run as a ghost (off unless chosen). */
+  private async raceTopRun(): Promise<void> {
+    const row = await fetchTopRun(utcDay());
+    if (!row) {
+      this.ui.notice("No run to race yet.");
+      return;
+    }
+    this.ghostSrc = row;
+    this.startDaily();
   }
 
   // ───────────────────────────────── pause / suspend ─────────────────────────────────
@@ -769,6 +938,7 @@ export class Game {
       { id: "hundred", label: "The Hundred", detail: `${Object.keys(this.profile.data.hundred).length} / 100` },
       { id: "endless", label: "Endless", detail: unlocked ? (this.profile.data.bestDepth ? `depth ${this.profile.data.bestDepth}` : "") : "after Act I", disabled: !unlocked },
       { id: "daily", label: "Daily Tessera", detail: unlocked ? utcDay() : "after Act I", disabled: !unlocked },
+      ...(unlocked ? [{ id: "race", label: "Race the #1 Daily", detail: "ghost" }] : []),
       { id: "boards", label: "Boards", detail: unlocked ? this.playerName : "after Act I", disabled: !unlocked },
       { id: "howto", label: "How to Play" },
       { id: "settings", label: "Settings" },
@@ -782,7 +952,10 @@ export class Game {
         if (id === "resume") this.resumeSuspended();
         else if (id === "hundred") this.showHundred();
         else if (id === "endless") this.startEndless();
-        else if (id === "daily") this.startDaily();
+        else if (id === "daily") {
+          this.ghostSrc = null;
+          this.startDaily();
+        } else if (id === "race") void this.raceTopRun();
         else if (id === "boards") this.showBoards();
         else if (id === "howto") this.showHowToMenu();
         else if (id === "settings") this.showSettings(() => this.showMenu());
@@ -1029,15 +1202,77 @@ export class Game {
       });
       return;
     }
+    const daily = w.config.mode === "daily";
+    const day = String(w.config.seed).replace("DAILY-", "");
+    const streak = this.profile.data.dailyStreak;
+    const dailyLine = daily
+      ? `<div class="t-sub t-daily">${streak && streak.last === utcDay() ? `Streak <b>${streak.count}</b> · ` : ""}Next Daily <span data-countdown>${fmtCountdown(msToNextDaily())}</span></div>`
+      : "";
     this.ui.show({
       id: "results",
-      title: w.config.mode === "daily" ? `DAILY · ${String(w.config.seed).replace("DAILY-", "")}` : "THE FALL",
-      body: `${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 2 ? [["Chain", w.score.bestChain] as [string, number]] : []), ...(w.perfectSectors ? [["Perfect", w.perfectSectors] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${this.boardStatus !== "idle" ? `<div class="t-sub" data-board-status>${this.boardLine()}</div>` : ""}`,
-      items: [{ id: "retry", label: "Retry" }, { id: "share", label: "Share" }, { id: "menu", label: "Menu" }],
-      onPick: (id) => (id === "retry" ? this.retry() : id === "share" ? void this.share() : this.showMenu()),
+      title: daily ? `DAILY #${dailyIndex(day)} · ${day}` : "THE FALL",
+      body: `${stats([["Depth", w.depthRow], ["Score", w.score.total.toLocaleString("en-US")], ["Sector", w.sector], ...(w.score.bestChain > 2 ? [["Chain", w.score.bestChain] as [string, number]] : []), ...(w.perfectSectors ? [["Perfect", w.perfectSectors] as [string, number]] : []), ...(w.beaconsCollected ? [["Beacons", w.beaconsCollected] as [string, number]] : []), ...(w.config.assist ? [["Assist", "on"] as [string, string]] : [])])}${this.boardStatus !== "idle" ? `<div class="t-sub" data-board-status>${this.boardLine()}</div>` : ""}${dailyLine}`,
+      items: [
+        { id: "retry", label: "Retry" },
+        { id: "share", label: "Share" },
+        ...(daily ? [{ id: "card", label: "Share card" }] : []),
+        { id: "menu", label: "Menu" }
+      ],
+      onPick: (id) => (id === "retry" ? this.retry() : id === "share" ? void (daily ? this.shareDailyText() : this.share()) : id === "card" ? void this.share() : this.showMenu()),
       onBack: () => this.showMenu()
     });
+    if (daily) this.tickCountdown();
   }
+
+  private countdownTimer = 0;
+  private tickCountdown(): void {
+    window.clearInterval(this.countdownTimer);
+    this.countdownTimer = window.setInterval(() => {
+      const el = document.querySelector<HTMLElement>("[data-countdown]");
+      if (!el) return window.clearInterval(this.countdownTimer);
+      el.textContent = fmtCountdown(msToNextDaily());
+    }, 1000);
+  }
+
+  /** Wordle-style text block for the finished Daily (brief §3.1); copied first, image is the secondary option. */
+  dailyShareText(): string | null {
+    const w = this.world;
+    if (!w || w.config.mode !== "daily") return null;
+    const day = String(w.config.seed).replace("DAILY-", "");
+    const earned = [...this.trail.values()].filter((c) => !c.start);
+    const b = this.boardStatus;
+    const validated = typeof b === "object" && b.board === `daily:${day}`;
+    const run = this.profile.data.dailyRuns[day];
+    const origin = location.origin;
+    return shareText({
+      index: dailyIndex(day),
+      depth: w.depthRow,
+      perfect: w.perfectSectors,
+      rank: validated ? b.rank : null,
+      grid: silhouette(earned),
+      url: run ? `${origin}/r/${run}` : `${origin}/d/${dailyIndex(day)}`
+    });
+  }
+
+  private async shareDailyText(): Promise<void> {
+    const text = this.dailyShareText();
+    if (!text) return;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      /* clipboard blocked: fall back to the native sheet */
+    }
+    if (!ok) {
+      const r = await this.sharer.share({ title: "Tessera", text });
+      ok = r.shared;
+    }
+    this.lastSharedText = text;
+    this.ui.notice(ok ? "Copied." : "Couldn't copy.");
+  }
+  /** Last text the Share button produced (verification). */
+  lastSharedText = "";
 
   /** The run's share card (Daily: date; Endless: depth). */
   shareCard(): HTMLCanvasElement | null {

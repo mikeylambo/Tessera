@@ -75,7 +75,10 @@ export function installGameApi(game: Game): void {
     },
     advance: (n: number, sim = true) => {
       for (let i = 0; i < n; i++) {
-        if (sim && game.world && !game.world.ended) api.input({});
+        if (sim && game.world && !game.world.ended) {
+          if (game.hasBot) game.stepFrames(1);
+          else api.input({});
+        }
         game.view.frame(0, 1 / 60);
       }
       return game.world?.frame ?? 0;
@@ -113,6 +116,35 @@ export function installGameApi(game: Game): void {
     suspend: () => game.suspend(),
     resumeSuspended: () => game.resumeSuspended(),
     profile: () => game.profile.data,
+    /** The current run as a replayable record (seed, log, final hash) — E2E builds a mock server row from it. */
+    runLog: () => {
+      const w = game.world;
+      if (!w) return null;
+      return { seed: String(w.config.seed), frames: w.frame, entries: game.recorder.entries.map((e) => [...e]), score: w.score.total, depth: w.depthRow, hash: w.stateHash(), ended: w.ended };
+    },
+    shareText: () => game.dailyShareText(),
+    link: () => ({ verdict: game.lastLinkVerdict, final: game.lastLinkFinal, phase: game.phase, screen: game.ui.active }),
+    /** Evidence: record the final audio mix for `ms` → webm data URL (video is rendered frame-exact separately). */
+    recordClip: async (ms: number): Promise<string | null> => {
+      game.audio.unlock();
+      const audio = game.audio.tap();
+      if (!audio) return null;
+      const stream = new MediaStream(audio.getAudioTracks());
+      const rec = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus", audioBitsPerSecond: 192_000 });
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (e) => chunks.push(e.data);
+      const done = new Promise<void>((r) => (rec.onstop = () => r()));
+      rec.start(500);
+      await new Promise((r) => setTimeout(r, ms));
+      rec.stop();
+      await done;
+      const blob = new Blob(chunks, { type: "video/webm" });
+      return await new Promise((r) => {
+        const fr = new FileReader();
+        fr.onload = () => r(fr.result as string);
+        fr.readAsDataURL(blob);
+      });
+    },
     editor: () => "Stage editor is not built yet (GDD §32, Phase 4).",
     game
   };

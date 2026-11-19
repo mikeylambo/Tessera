@@ -1,5 +1,6 @@
 import type { AudioEngine } from "./Engine";
 import { dorianFreq, midiFreq } from "./Engine";
+import { CHORDS } from "./Music";
 import type { SimEvent, AnnouncerLine } from "../sim/Events";
 import type { CubeType } from "../sim/types";
 
@@ -14,7 +15,6 @@ const OCTAVE: Readonly<Record<CubeType, number>> = { glass: 5, stone: 4, advanta
 
 /** Distinct timbre per event (GDD §26). Kill = instant transient + tonal note quantized to the next 16th. */
 export class Sfx {
-  private voicesPerSlot = new Map<number, number>();
   private lastKillAt = 0;
   private humStop: (() => void) | null = null;
 
@@ -57,29 +57,45 @@ export class Sfx {
           if (ev.marks === 0) e.burst(e.sfx, { at: now, decay: 0.03, gain: 0.05, freq: 600, q: 2 });
           break;
         case "Miss":
-          e.burst(e.sfx, { at: now, decay: 0.05, gain: 0.07, freq: 420, q: 3 });
-          e.tone(e.sfx, { type: "square", freq: 110, at: now, decay: 0.04, gain: 0.02, filter: 500 });
+          // dry, short, muted click — no reverb send, no pitch: wasted, never punished
+          e.burst(e.sfx, { at: now, decay: 0.025, gain: 0.06, freq: 520, q: 2.5 });
           break;
         case "Kill": {
           this.lastKillAt = now;
           // transient (0 ms): crack + body
+          if (ev.type === "forbidden") {
+            // dissonant violet shatter: glassy tritone cluster + a falling crack (distinct by ear from every kill)
+            e.burst(e.sfx, { at: now, decay: 0.35, gain: 0.3, freq: 4200, sweepTo: 900, q: 6, send: 0.5 });
+            for (const [m, d] of [[61, -12], [67, 14], [73, 0]] as const) e.tone(e.sfx, { type: "sawtooth", freq: midiFreq(m), at: now, decay: 0.9, gain: 0.045, filter: 2600, detune: d, send: 0.7 });
+            break;
+          }
           e.burst(e.sfx, { at: now, decay: ev.type === "glass" ? 0.18 : 0.1, gain: 0.32, freq: ev.type === "glass" ? 5200 : ev.type === "iron" ? 900 : 1800, q: 0.9, send: 0.3 });
-          e.tone(e.sfx, { freq: ev.type === "iron" ? 90 : 140, glideTo: 50, at: now, decay: 0.15, gain: 0.2 });
-          if (ev.type === "forbidden") break;
-          // tonal note quantized to the next 16th; max 4 voices per slot, extra kills thicken the chord
           const q = this.next16th(c);
-          const used = this.voicesPerSlot.get(q.slot) ?? 0;
-          if (used >= 4) break;
-          this.voicesPerSlot.set(q.slot, used + 1);
-          if (this.voicesPerSlot.size > 64) this.voicesPerSlot = new Map([...this.voicesPerSlot].slice(-16));
+          // the low thump lands on the next 16th of the music
+          if (ev.index === 0) e.tone(e.sfx, { freq: ev.type === "iron" ? 90 : 120, glideTo: 42, at: q.at, decay: 0.2, gain: 0.26 });
+          const sixteenth = c.tickLen / 8 / 60;
           const oct = OCTAVE[ev.type];
-          const f = dorianFreq(ev.x, oct);
-          const g = 0.2 / Math.sqrt(1 + used);
-          e.tone(e.sfx, { type: "triangle", freq: f, at: q.at, decay: 1.1, gain: g, send: 0.55 });
-          e.tone(e.sfx, { freq: f * 2, at: q.at, decay: 0.6, gain: g * 0.35, send: 0.5 });
-          if (ev.chain >= 3) e.tone(e.sfx, { type: "sine", freq: f * 1.5, at: q.at, attack: 0.02, decay: 1.6, gain: g * 0.5, send: 0.8 });
-          if (ev.type === "advantage") e.tone(e.sfx, { freq: f * 4, at: q.at, decay: 1.8, gain: 0.05, send: 0.9 });
-          if (ev.type === "phase") e.tone(e.sfx, { type: "triangle", freq: f * 1.5, at: q.at + 0.06, decay: 1, gain: g * 0.7, send: 0.6 });
+          if (ev.chain <= 1) {
+            // single kill: column → D Dorian degree (GDD §26)
+            const f = dorianFreq(ev.x, oct);
+            this.note(f, q.at, 0.2, ev.type);
+            break;
+          }
+          // chains climb the current chord (one note per 16th), never repeat; the final kill resolves on the downbeat
+          const bar = Math.floor(q.slot / 16);
+          const chord = CHORDS[((bar % CHORDS.length) + CHORDS.length) % CHORDS.length]!;
+          const ladder = (i: number) => chord[i % chord.length]! + 12 * Math.floor(i / chord.length) + 12;
+          const at = q.at + ev.index * sixteenth;
+          const g = 0.17;
+          if (ev.index < ev.chain - 1 || ev.chain < 3) this.note(midiFreq(ladder(ev.index)), at, g, ev.type);
+          else {
+            const lastSlot = q.slot + ev.index;
+            const down = Math.ceil((lastSlot + 1) / 4) * 4; // next beat boundary after the run
+            const t = q.at + (down - q.slot) * sixteenth;
+            const root = chord[0]! + 12;
+            for (const m of [root - 12, root, root + 7, root + 12, root + 16 - (chord === CHORDS[0] ? 1 : 0)]) e.tone(e.sfx, { type: "triangle", freq: midiFreq(m), at: t, attack: 0.01, decay: 1.8, gain: 0.07, send: 0.8 });
+            e.tone(e.sfx, { freq: midiFreq(root - 24), at: t, decay: 0.9, gain: 0.22 });
+          }
           break;
         }
         case "IronHit":
@@ -112,8 +128,10 @@ export class Sfx {
           e.burst(e.sfx, { at: now, decay: 0.3, gain: 0.2, freq: 500, type: "lowpass" });
           break;
         case "Crush":
-          e.tone(e.sfx, { freq: 95, glideTo: 40, at: now, decay: 0.35, gain: 0.45 });
-          e.burst(e.sfx, { at: now + 0.05, decay: 0.35, gain: 0.12, freq: 1200, sweepTo: 300, q: 1.2 });
+          // heavy dull impact (no ring) + the shove's stone skid
+          e.tone(e.sfx, { freq: 72, glideTo: 34, at: now, decay: 0.45, gain: 0.55 });
+          e.burst(e.sfx, { at: now, decay: 0.12, gain: 0.3, freq: 260, type: "lowpass" });
+          e.burst(e.sfx, { at: now + 0.06, decay: 0.32, gain: 0.1, freq: 900, sweepTo: 240, q: 1.4 });
           break;
         case "CrumbleWarn": {
           const ctx = e.ctx;
@@ -153,9 +171,26 @@ export class Sfx {
           for (const m of [62, 66, 69, 74, 78]) e.tone(e.sfx, { type: "triangle", freq: midiFreq(m), at: now, attack: 0.1, decay: 2.8, gain: 0.06, send: 0.9 });
           e.duck(4, 0.5);
           break;
-        case "Fall":
-          e.tone(e.sfx, { freq: 440, glideTo: 60, at: now, decay: 1.4, gain: 0.12, send: 0.8 });
+        case "Fall": {
+          // a long reversed swell that cuts into silence
+          const ctx = e.ctx;
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = "sawtooth";
+          o.frequency.setValueAtTime(midiFreq(38), now);
+          const lp = ctx.createBiquadFilter();
+          lp.type = "lowpass";
+          lp.frequency.setValueAtTime(300, now);
+          lp.frequency.exponentialRampToValueAtTime(2400, now + 1.8);
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.exponentialRampToValueAtTime(0.11, now + 1.8);
+          g.gain.setValueAtTime(0.0001, now + 1.82);
+          o.connect(lp).connect(g).connect(e.sfx);
+          o.start(now);
+          o.stop(now + 1.9);
+          e.duck(12, 2.4);
           break;
+        }
         case "TurnWarn":
           // cold rising fifth: the construct is about to move (distinct from the Crumble hum)
           e.tone(e.sfx, { type: "triangle", freq: midiFreq(50), glideTo: midiFreq(57), at: now, attack: 0.3, decay: ev.frames / 60, gain: 0.05, send: 0.8 });
@@ -182,6 +217,14 @@ export class Sfx {
     const notes: Record<AnnouncerLine, number[]> = { tessera: [62, 69], beautiful: [69, 74, 78], holdOn: [62, 60], purified: [66, 74], again: [69, 62] };
     notes[line].forEach((m, i) => e.tone(e.voice, { type: "sine", freq: midiFreq(m), at: at + 0.15 + i * 0.22, attack: 0.08, decay: 0.9, gain: 0.07, send: 0.8 }));
     e.duck(8, 0.9);
+  }
+
+  private note(f: number, at: number, g: number, type: CubeType): void {
+    const e = this.e;
+    e.tone(e.sfx, { type: "triangle", freq: f, at, decay: 1.1, gain: g, send: 0.55 });
+    e.tone(e.sfx, { freq: f * 2, at, decay: 0.6, gain: g * 0.35, send: 0.5 });
+    if (type === "advantage") e.tone(e.sfx, { freq: f * 4, at, decay: 1.8, gain: 0.05, send: 0.9 });
+    if (type === "phase") e.tone(e.sfx, { type: "triangle", freq: f * 1.5, at: at + 0.06, decay: 1, gain: g * 0.7, send: 0.6 });
   }
 
   ui(kind: "tick" | "confirm"): void {

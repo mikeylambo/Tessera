@@ -1,7 +1,7 @@
 // TESSERA leaderboard submit (DECISIONS #67). The client sends its input log; the server re-runs the real,
 // deterministic sim and records only the score that the replay reproduces. Writes need the service role.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { resimulate } from "./sim.js";
+import { traceRun, silhouette } from "./sim.js";
 
 const MAX_FRAMES = 60 * 60 * 45; // 45 min of play ≈ 0.5 s CPU to verify
 const MAX_ENTRIES = 40000;
@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
   } else return json(400, { error: "bad mode" });
 
   // the verdict: replay the run
-  const w = resimulate(config as never, entries as never, frames!);
+  const tr = traceRun(config as never, entries as never, frames!);
+  const w = tr.world;
   if (!w.ended) return json(422, { error: "run did not end" });
   const score = w.score.total as number;
   const depth = w.depthRow as number;
@@ -62,8 +63,19 @@ Deno.serve(async (req) => {
     const up = await db.from("tessera_scores").upsert({ board, player, name, score, depth, frames: w.frame, updated_at: new Date().toISOString() });
     if (up.error) return json(500, { error: "db" });
   } else if (prev.data) await db.from("tessera_scores").update({ name }).eq("board", board).eq("player", player);
+  // Daily: the validated input log becomes a public replay (/r/<id>); its hash lets any client verify playback
+  let run: string | null = null;
+  if (mode === "daily") {
+    const have = await db.from("tessera_runs").select("id").eq("board", board).eq("player", player).maybeSingle();
+    if (have.data) run = have.data.id;
+    else if (write) {
+      const id = Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => "0123456789abcdefghjkmnpqrstvwxyz"[b % 32]).join("");
+      const ins = await db.from("tessera_runs").insert({ id, board, day: board.slice(6), player, name, mode, seed: config.seed, frames: w.frame, entries, score, depth, perfect: w.perfectSectors ?? 0, hash: tr.hash, grid: silhouette(tr.cells).join("/") });
+      if (!ins.error) run = id;
+    }
+  }
   const best = write ? score : prev.data!.score;
   const above = await db.from("tessera_scores").select("player", { count: "exact", head: true }).eq("board", board).gt("score", best);
   const total = await db.from("tessera_scores").select("player", { count: "exact", head: true }).eq("board", board);
-  return json(200, { board, verified: true, score, depth, best, rank: (above.count ?? 0) + 1, of: total.count ?? 0, recorded: write });
+  return json(200, { board, verified: true, score, depth, best, rank: (above.count ?? 0) + 1, of: total.count ?? 0, recorded: write, run });
 });

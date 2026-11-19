@@ -11,6 +11,10 @@ export interface Profile {
   bestDepth: number;
   bestScore: number;
   dailyRanked: Record<string, { score: number; depth: number }>;
+  /** Daily streak (additive; defaulted on load — consecutive UTC days with a finished Daily). */
+  dailyStreak: { last: string; count: number } | null;
+  /** Validated replay id per Daily day (additive). */
+  dailyRuns: Record<string, string>;
   onboarding: { markSuccess: number; detonateSuccess: number; retired: boolean };
   palettes: string[];
   firstLaunchDone: boolean;
@@ -40,6 +44,8 @@ export function defaultProfile(): Profile {
     bestDepth: 0,
     bestScore: 0,
     dailyRanked: {},
+    dailyStreak: null,
+    dailyRuns: {},
     onboarding: { markSuccess: 0, detonateSuccess: 0, retired: false },
     palettes: [],
     firstLaunchDone: false,

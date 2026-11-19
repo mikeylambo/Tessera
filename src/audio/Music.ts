@@ -1,5 +1,6 @@
 import type { AudioEngine } from "./Engine";
 import { midiFreq } from "./Engine";
+import { AUDIO_MANIFEST } from "./manifest";
 
 export type MusicState = "title" | "play" | "chamber" | "results" | "fall";
 
@@ -12,11 +13,30 @@ export interface MusicInputs {
   tickLen: number;
   formationsSeen: number;
   groundRows: number;
+  /** Connected ground tiles (percussion layer enters above the economy band midpoint). */
+  ground: number;
   lastStand: boolean;
 }
 
+/** Connected-ground target band is 28–49 tiles (TUNING_LOG); percussion enters above its midpoint. */
+export const PERCUSSION_GROUND = 38;
+/** A chain keeps the lead line alive for this many bars. */
+const LEAD_BARS = 2;
+
+/** Layers switch only on bar lines (brief §2.6). */
+interface Layers {
+  pad: boolean;
+  bass: boolean;
+  perc: boolean;
+  lead: boolean;
+  heartbeat: boolean;
+}
+
+/** Layer → manifest key. A file mapped there (8-bar loop, 100 BPM, D Dorian) replaces the synth layer. */
+const STEM_KEYS: Readonly<Record<keyof Layers, string>> = { pad: "music.pad", bass: "music.bass", perc: "music.perc", lead: "music.lead", heartbeat: "music.heartbeat" };
+
 // D Dorian progression, one chord per bar (4 beats = 2 ticks)
-const CHORDS: number[][] = [
+export const CHORDS: number[][] = [
   [50, 57, 60, 65], // Dm(add9-ish): D A C F
   [48, 55, 60, 64], // C: C G C E
   [46, 53, 57, 62], // Bb: Bb F A D
@@ -29,8 +49,66 @@ export class Music {
   private scheduled = -1;
   private drone: { osc: OscillatorNode[]; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private tension = 0;
+  private layers: Layers = { pad: true, bass: false, perc: false, lead: false, heartbeat: false };
+  private lastChainBar = -99;
+  private pendingChain = false;
+  private stems = new Map<keyof Layers, AudioBuffer>();
+  private stemsLoading = false;
 
   constructor(private readonly e: AudioEngine) {}
+
+  /** A chain resolved: the lead line enters at the next bar line. */
+  onChain(): void {
+    this.pendingChain = true;
+  }
+
+  /** Current layer state (dev/tests). */
+  get activeLayers(): Readonly<Layers> {
+    return this.layers;
+  }
+
+  /** Load any manifest stems (non-`synth:` entries). Missing files fall back to the synth silently. */
+  private loadStems(): void {
+    if (this.stemsLoading || !this.e.ctx) return;
+    this.stemsLoading = true;
+    const ctx = this.e.ctx;
+    for (const [layer, key] of Object.entries(STEM_KEYS) as Array<[keyof Layers, string]>) {
+      const src = AUDIO_MANIFEST[key];
+      if (!src || src.startsWith("synth:")) continue;
+      void fetch(src)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+        .then((b) => ctx.decodeAudioData(b))
+        .then((buf) => this.stems.set(layer, buf))
+        .catch(() => undefined);
+    }
+  }
+
+  /** Decide layers at a bar line from game state — never mid-bar. */
+  private chooseLayers(bar: number, m: MusicInputs): void {
+    if (this.pendingChain) {
+      this.lastChainBar = bar;
+      this.pendingChain = false;
+    }
+    if (m.lastStand) {
+      this.layers = { pad: true, bass: false, perc: false, lead: false, heartbeat: true }; // strip to pad + heartbeat
+      return;
+    }
+    this.layers = { pad: true, bass: m.formationsSeen >= 3, perc: m.ground > PERCUSSION_GROUND, lead: bar - this.lastChainBar < LEAD_BARS, heartbeat: false };
+  }
+
+  /** Play one bar of a stem (bar index within its 8-bar loop), time-stretched to the current tick. */
+  private stemBar(layer: keyof Layers, bar: number, at: number, barSeconds: number): boolean {
+    const buf = this.stems.get(layer);
+    const ctx = this.e.ctx;
+    if (!buf || !ctx) return false;
+    const srcBar = buf.duration / 8;
+    const node = ctx.createBufferSource();
+    node.buffer = buf;
+    node.playbackRate.value = srcBar / barSeconds;
+    node.connect(this.e.music);
+    node.start(at, (bar % 8) * srcBar, srcBar);
+    return true;
+  }
 
   private ensureDrone(): void {
     const ctx = this.e.ctx;
@@ -78,6 +156,7 @@ export class Music {
     const ctx = this.e.ctx;
     if (!ctx || ctx.state !== "running") return;
     this.ensureDrone();
+    this.loadStems();
     if (this.state !== "play" && this.state !== "chamber") return;
     const sixteenth = m.tickLen / 8;
     const tickStart = m.frame - m.f;
@@ -110,24 +189,38 @@ export class Music {
       if (inBar === 0) e.tone(e.music, { type: "sawtooth", freq: midiFreq(chord[0]! - 12), at, attack: 0.4, decay: dur * 15, gain: 0.05, filter: 700, send: 0.6 });
       return;
     }
-    // soft kick on every beat
-    if (beat) {
+    if (inBar === 0) {
+      this.chooseLayers(bar, m);
+      const barSec = dur * 16;
+      for (const k of Object.keys(this.layers) as Array<keyof Layers>) if (this.layers[k]) this.stemBar(k, bar, at, barSec);
+    }
+    const L = this.layers;
+    const synth = (k: keyof Layers) => L[k] && !this.stems.has(k);
+    // Last Stand heartbeat: a double low pulse on beat 1 and 3
+    if (synth("heartbeat") && (inBar === 0 || inBar === 8)) {
+      e.tone(e.music, { freq: 62, glideTo: 40, at, decay: 0.16, gain: 0.42 });
+      e.tone(e.music, { freq: 58, glideTo: 38, at: at + dur * 1.5, decay: 0.2, gain: 0.3 });
+    }
+    // lead line during chains: chord tones on 8ths, an octave up, climbing then falling
+    if (synth("lead") && id % 2 === 0) {
+      const step = [0, 1, 2, 3, 2, 1, 2, 3][(inBar / 2) | 0]!;
+      e.tone(e.music, { type: "triangle", freq: midiFreq(chord[step]! + 12), at, attack: 0.01, decay: dur * 3, gain: 0.05, send: 0.6 });
+    }
+    // percussion: soft kick on every beat (+ hats below)
+    if (synth("perc") && beat) {
       e.tone(e.music, { freq: 110, glideTo: 42, at, decay: 0.22, gain: 0.5 });
       e.burst(e.music, { at, decay: 0.02, gain: 0.08, freq: 3000, type: "highpass" });
     }
-    // sparse pads: one chord per bar
-    if (inBar === 0) {
+    // sparse pads: one chord per bar (base layer)
+    if (synth("pad") && inBar === 0) {
       for (const n of chord) e.tone(e.music, { type: "sawtooth", freq: midiFreq(n), at, attack: 0.9, decay: dur * 15, gain: 0.018, filter: 900 + this.tension * 1400, send: 0.7, detune: (n % 3) * 4 - 4 });
     }
-    // mid (formation 3+): bass + hats
-    if (m.formationsSeen >= 3) {
-      if (inBar === 0 || inBar === 6 || inBar === 10) e.tone(e.music, { type: "triangle", freq: midiFreq(chord[0]! - 24), at, decay: dur * 3, gain: 0.16, filter: 400 });
-      const hat = m.lastStand ? id % 2 === 1 : id % 4 === 2;
-      if (hat) e.burst(e.music, { at, decay: 0.035, gain: m.lastStand ? 0.05 : 0.035, freq: 8000, type: "highpass" });
-    }
+    // mid (formation 3+): bass; hats ride with percussion
+    if (synth("bass") && (inBar === 0 || inBar === 6 || inBar === 10)) e.tone(e.music, { type: "triangle", freq: midiFreq(chord[0]! - 24), at, decay: dur * 3, gain: 0.16, filter: 400 });
+    if (synth("perc") && id % 4 === 2) e.burst(e.music, { at, decay: 0.035, gain: 0.035, freq: 8000, type: "highpass" });
     // ground ≤ 4 rows: tension strings
     if (this.tension > 0.5 && inBar % 8 === 0) e.tone(e.music, { type: "sawtooth", freq: midiFreq(chord[2]! + 12), at, attack: 0.5, decay: dur * 8, gain: 0.02 * this.tension, filter: 2400, send: 0.6, detune: 6 });
-    // last stand: reversed-feel swells + grit
+    // last stand: reversed-feel swells under the pad
     if (m.lastStand && inBar === 8) e.tone(e.music, { type: "square", freq: midiFreq(chord[1]!), at, attack: dur * 6, decay: 0.08, gain: 0.03, filter: 1600, send: 0.5 });
   }
 

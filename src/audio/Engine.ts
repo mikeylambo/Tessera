@@ -3,6 +3,14 @@ import { cosmetic } from "../render/cosmetic";
 export class AudioEngine {
   ctx: AudioContext | null = null;
   master!: GainNode;
+  private limiter: DynamicsCompressorNode | null = null;
+  /** Dev/evidence: a MediaStream of the final mix (post-limiter) for clip recording. */
+  tap(): MediaStream | null {
+    if (!this.ctx || !this.limiter) return null;
+    const d = this.ctx.createMediaStreamDestination();
+    this.limiter.connect(d);
+    return d.stream;
+  }
   music!: GainNode;
   musicDuck!: GainNode;
   sfx!: GainNode;
@@ -31,6 +39,7 @@ export class AudioEngine {
     limiter.release.value = 0.2;
     this.master = ctx.createGain();
     this.master.connect(limiter).connect(ctx.destination);
+    this.limiter = limiter;
     this.musicDuck = ctx.createGain();
     this.music = ctx.createGain();
     this.music.connect(this.musicDuck).connect(this.master);

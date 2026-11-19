@@ -18,6 +18,24 @@ export interface SubmitResult {
   rank: number;
   of: number;
   recorded: boolean;
+  /** Daily: public replay id (`/r/<id>`) of the validated run. */
+  run?: string | null;
+}
+
+/** A validated, publicly readable Daily run (brief §3.2). */
+export interface RunRow {
+  id: string;
+  board: string;
+  day: string;
+  name: string;
+  seed: string;
+  frames: number;
+  entries: Array<[number, number, number, number, number, number, number, number]>;
+  score: number;
+  depth: number;
+  perfect: number;
+  hash: string;
+  grid: string;
 }
 export interface BoardRow {
   rank: number;
@@ -84,6 +102,32 @@ export async function fetchBoard(board: string, playerId: string, limit = 10): P
       }
     }
     return { rows, mine };
+  } catch {
+    return null;
+  }
+}
+
+const RUN_COLS = "id,board,day,name,seed,frames,entries,score,depth,perfect,hash,grid";
+
+/** Public read of one validated run by id. `null` = not found / offline. */
+export async function fetchRun(id: string): Promise<RunRow | null> {
+  try {
+    const r = await fetchT(`${URL_BASE}/rest/v1/tessera_runs?id=eq.${encodeURIComponent(id)}&select=${RUN_COLS}`, { headers: HEADERS });
+    if (!r.ok) return null;
+    const d = (await r.json()) as RunRow[];
+    return d[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The day's #1 validated run (ghost source). */
+export async function fetchTopRun(day: string): Promise<RunRow | null> {
+  try {
+    const r = await fetchT(`${URL_BASE}/rest/v1/tessera_runs?board=eq.daily:${day}&select=${RUN_COLS}&order=score.desc,created_at.asc&limit=1`, { headers: HEADERS });
+    if (!r.ok) return null;
+    const d = (await r.json()) as RunRow[];
+    return d[0] ?? null;
   } catch {
     return null;
   }

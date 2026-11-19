@@ -11,6 +11,7 @@ import { LatticeView, OverlayView } from "./Lattice";
 import { VfxView } from "./Vfx";
 import { TesseraFeel } from "./Feel";
 import { FEEL } from "./FeelTuning";
+import { GhostView } from "./Ghost";
 
 export interface ViewSettings {
   reducedMotion: boolean;
@@ -29,6 +30,9 @@ export class WorldView {
   readonly lattice = new LatticeView();
   readonly overlay = new OverlayView();
   readonly vfx: VfxView;
+  readonly ghost = new GhostView();
+  /** Daily ghost world (another validated run of the same seed), stepped by Game in lockstep. */
+  ghostWorld: World | null = null;
   readonly feel: TesseraFeel;
   private world: World | null = null;
   private t = 0;
@@ -43,7 +47,7 @@ export class WorldView {
     this.scene = new TesseraScene({ canvas, mobile });
     this.vfx = new VfxView(this.scene.look);
     this.feel = new TesseraFeel(this.scene.look);
-    this.scene.world.add(this.lattice.mesh, this.tiles.group, this.cubes.group, this.figure.root, this.overlay.group, this.vfx.group);
+    this.scene.world.add(this.lattice.mesh, this.tiles.group, this.cubes.group, this.figure.root, this.overlay.group, this.vfx.group, this.ghost.group);
   }
 
   configure(s: Partial<ViewSettings>): void {
@@ -265,6 +269,7 @@ export class WorldView {
     this.cubes.update(w, alpha, realDt, this.cursor, this.top);
     this.figure.update(w, alpha, realDt, this.top);
     this.overlay.update(w, realDt, this.cursor, this.top);
+    this.ghost.update(this.ghostWorld);
     this.vfx.update(pdt, this.figure.corePos);
     const pz = this.figure.root.position.z;
     this.lattice.update(w, -pz / 2, this.t);

@@ -263,6 +263,85 @@ try {
     check(cards[0] !== cards[1], "two players on the same Daily get different cards");
   }
 
+  // ── 3e: shareable Daily — text share → replay link in a fresh context → same hash + score; tamper rejected ──
+  {
+    const ctxA = await browser.newContext({ viewport: { width: 1280, height: 800 }, permissions: ["clipboard-read", "clipboard-write"] });
+    const page = await ctxA.newPage();
+    const errors = watch(page);
+    await page.goto(`${BASE}?daily=2026-11-18`);
+    await waitFor(page, () => window.__GAME?.state().phase === "playing");
+    await page.evaluate(() => {
+      const g = window.__GAME;
+      g.manual(true);
+      g.bot.start("expert");
+      for (let i = 0; i < 60 && !g.state().ended; i++) g.stepFrames(60 * 30);
+      g.bot.stop();
+      g.skipReplay();
+    });
+    const run = await page.evaluate(() => window.__GAME.runLog());
+    check(run && run.ended, `Daily run finished (frame ${run?.frames}, score ${run?.score})`);
+    await waitFor(page, () => window.__GAME.state().screen === "results");
+    await page.click('[data-id="share"]').catch(() => undefined);
+    await sleep(400);
+    const text = await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
+    const lines = text.split("\n");
+    check(/^TESSERA Daily #\d+ ✦$/.test(lines[0] ?? ""), `share text header (${lines[0]})`);
+    check(/^Depth \d+/.test(lines[1] ?? ""), `share text stats (${lines[1]})`);
+    const grid = lines.slice(2, -1);
+    check(grid.length >= 1 && grid.length <= 6 && grid.every((r) => [...r].length === 6 && /^[🟧⬛]+$/u.test(r)), `share grid 6 cols × ${grid.length} rows`);
+    check(/\/(d|r)\/[0-9a-z]+$/.test(lines.at(-1) ?? ""), `share link (${lines.at(-1)})`);
+    check(!/Rank/.test(text), "no rank on an unvalidated run");
+    const countdown = await page.evaluate(() => document.querySelector("[data-countdown]")?.textContent ?? "");
+    check(/^\d\d:\d\d:\d\d$/.test(countdown), `next-Daily countdown (${countdown})`);
+    check(errors.length === 0, `zero console errors in Daily share (${errors.slice(0, 3).join(" | ")})`);
+    await ctxA.close();
+
+    const ID = "e2etest0ab";
+    const row = { id: ID, board: "daily:2026-11-18", day: "2026-11-18", name: "AMBER-CAIRN", seed: run.seed, frames: run.frames, entries: run.entries, score: run.score, depth: run.depth, perfect: 0, hash: run.hash, grid: "111111" };
+    const openLink = async (id, body) => {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+      await ctx.route("**/rest/v1/tessera_runs**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) }));
+      const p = await ctx.newPage();
+      const errs = watch(p);
+      await p.goto(`${BASE}?r=${id}`);
+      await waitFor(p, () => window.__GAME?.link().verdict !== null, 30000);
+      return { ctx, p, errs };
+    };
+    {
+      const { ctx, p, errs } = await openLink(ID, [row]);
+      const v = await p.evaluate(() => window.__GAME.link());
+      check(v.verdict?.ok === true && v.phase === "replay", `replay link verifies and plays (${v.verdict?.reason || "ok"}, ${v.phase})`);
+      await p.screenshot({ path: `${OUT}/14-replay-link.png` });
+      await p.click('[data-id="skip"]');
+      await waitFor(p, () => window.__GAME.link().final !== null);
+      const f = await p.evaluate(() => window.__GAME.link().final);
+      check(f && f.hash === run.hash && f.score === run.score, `replay reaches the same final hash + score (${f?.hash?.slice(0, 8)} / ${f?.score})`);
+      const end = await p.evaluate(() => document.body.innerText);
+      check(/Play today's Daily/i.test(end), "replay ends with 'Play today's Daily'");
+      check(errs.length === 0, `zero console errors in replay link (${errs.slice(0, 3).join(" | ")})`);
+      await ctx.close();
+    }
+    {
+      const tampered = { ...row, entries: row.entries.slice(0, Math.max(1, row.entries.length - 3)) };
+      const { ctx, p } = await openLink(ID, [tampered]);
+      const v = await p.evaluate(() => window.__GAME.link());
+      check(v.verdict?.ok === false && v.phase !== "replay", `tampered log rejected (${v.verdict?.reason})`);
+      await ctx.close();
+    }
+    {
+      const { ctx, p } = await openLink("BAD!id", []);
+      const v = await p.evaluate(() => window.__GAME.link());
+      check(v.verdict?.ok === false, `malformed replay id rejected (${v.verdict?.reason})`);
+      await ctx.close();
+    }
+    {
+      const { ctx, p } = await openLink("zzzzzzzzzz", []);
+      const v = await p.evaluate(() => window.__GAME.link());
+      check(v.verdict?.ok === false, `unknown replay id rejected (${v.verdict?.reason})`);
+      await ctx.close();
+    }
+  }
+
   // ── 3b: shell tuning panel (dev only) ─────────────────────────────────
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
