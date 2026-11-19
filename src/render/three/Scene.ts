@@ -67,7 +67,7 @@ const TesseraPostShader = {
       vec3 inv = vec3(0.92, 0.9, 1.0) - c * vec3(0.85, 0.9, 0.7) + vec3(0.0, 0.0, 0.08) * (1.0 - l);
       c = mix(c, clamp(inv, 0.0, 1.0) * 0.85, uInvert);
       // warm lift: brighten toward amber in proportion to luminance (void stays void)
-      c += uWarm * vec3(1.0, 0.72, 0.38) * (0.25 + l);
+      c += uWarm * vec3(1.0, 0.72, 0.38) * l * 1.6;
       c *= 1.0 - uDim * (0.6 + 0.4 * length(d) * 2.0);
       gl_FragColor = vec4(c, 1.0);
     }`

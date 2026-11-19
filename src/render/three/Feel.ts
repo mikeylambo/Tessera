@@ -17,7 +17,7 @@ export const TESSERA_BUNDLES: readonly ImpactBundle[] = [
   // chromatic transients are Tessera-driven (TesseraPost) so Reduced Motion can cut them completely
   { id: "tessera.forbidden", hitstopMs: 67, trauma: 0.71, post: [{ id: "vignette.squeeze", amount: 0.4 }], rumble: { strength: 0.6, ms: 150 } },
   { id: "tessera.crush", hitstopMs: 67, trauma: 0.85, post: [{ id: "vignette.squeeze", amount: 0.8 }], rumble: { strength: 0.75, ms: 180 } },
-  { id: "tessera.climax", hitstopMs: 100, trauma: 1, post: [{ id: "bloom.flare", amount: 1 }], flash: { token: "ember.hot", amount: 0.15 }, rumble: { strength: 1, ms: 150 } },
+  { id: "tessera.climax", hitstopMs: 100, trauma: 1, post: [{ id: "bloom.flare", amount: 1 }], flash: { token: "ember.hot", amount: 0.08 }, rumble: { strength: 1, ms: 150 } },
   { id: "tessera.purify", hitstopMs: 67, trauma: 0.6, post: [{ id: "bloom.flare", amount: 0.8 }], flash: { token: "ember.hot", amount: 0.12 }, rumble: { strength: 0.6, ms: 200 } },
   { id: "tessera.turn", trauma: 0.71, rumble: { strength: 0.5, ms: 160 } }
 ];

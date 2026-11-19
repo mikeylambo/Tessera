@@ -17,3 +17,11 @@ Every change to `src/data/tuning.ts` or authored pacing data is logged here with
 | 6 | 2026-11-19 | look.post bloomThreshold / vignetteAmount / grain / grainAmount | 0.85 / 0.42 / off / — → 1.0 / 0.32 / on / 0.012 | Visual bar §1.1; before/after stills in docs/evidence/visual-bar (DECISIONS #76) | Claude |
 | 7 | 2026-11-19 | hitstop cap (presentation) | 8 → 6 f (now `tessera.feel.hitCap`; `TUNING.hitstop` no longer read by View) | Brief §2.2 (DECISIONS #77) | Claude |
 | 8 | 2026-11-19 | new group `tessera.feel` (33 values, see tuning/tessera.feel.json) | — | Brief §1–2; all presentation-only | Claude |
+| 9 | 2026-11-19 | Climax flash (tessera.climax bundle) | 0.15 → 0.08 | Chain/Blast after-stills: the full-screen ember flash lifted the void to brown for ~6 f, against "void is the darkest value" (§23) | Claude |
+
+## §36 perf re-measure (2026-11-19, `node tools/perf.mjs`, bot Daily, 600 frames after 40 s of play)
+| Target | Sim step p50 / p99 | CPU per rendered frame p50 | Heap |
+|---|---|---|---|
+| Desktop 1280×720 | 0.1 / 0.5 ms (≤ 1 ms ✓) | 0.8 ms | 16 MB |
+| Pixel 7 emulation, 4× CPU throttle | 0.1 / 3.4 ms (p99 over budget under 4× throttle) | 2.9 ms | 16 MB |
+Shortfall, honestly: GPU frame time cannot be measured in this container (SwiftShader software GL); its p99 frames of 2–3 s are shader-compile stalls in software GL, not representative. A device check on real hardware (MacBook Pro 5300M, iPhone 13 / Pixel 7) is still required for the 8 / 14 ms frame-time targets — the new post cost is one extra full-screen pass (Tessera post) + grain and a backdrop sphere + one plane.
