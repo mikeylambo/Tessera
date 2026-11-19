@@ -2,12 +2,12 @@
 import { ImageResponse } from "@vercel/og";
 import { dailyDay, dailyIndex, runById, topRun, type RunMeta } from "./_shared.js";
 
-// Node runtime: current @vercel/og references a Node builtin the edge runtime rejects.
+export const config = { runtime: "edge" }; // @vercel/og pinned to 0.6.x: later versions reference node:module, which edge rejects
 
 type El = { type: string; props: Record<string, unknown> };
 const h = (type: string, style: Record<string, unknown>, children?: unknown): El => ({ type, props: { style: { display: "flex", ...style }, children } });
 
-export async function GET(req: Request): Promise<Response> {
+export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const r = url.searchParams.get("r");
   const d = url.searchParams.get("d");
