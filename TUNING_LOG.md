@@ -14,3 +14,6 @@ Every change to `src/data/tuning.ts` or authored pacing data is logged here with
 - **Watch:** the average sits near the low edge of the band; the lowest single-seed average was ~24. Levers held in reserve, in Michael's order: denser band-1 formations, then spawn distance. Human playtest should confirm before further changes.
 
 | 5 | 2026-11-10 | camera.aheadFar | 10 → 8 units | Turn prototype capture (1280×720): with look-ahead 10 the figure sits ~22° below centre against a 25° half-FOV and is clipped at the frame's bottom edge, breaking GDD §15 camera priority #1 (player cell + Reach). At 8 the figure sits ~17° below centre and the hinged cliff below the ledge is in frame. Geometry: camera 14 up / 18 behind the look target. | Claude |
+| 6 | 2026-11-19 | look.post bloomThreshold / vignetteAmount / grain / grainAmount | 0.85 / 0.42 / off / — → 1.0 / 0.32 / on / 0.012 | Visual bar §1.1; before/after stills in docs/evidence/visual-bar (DECISIONS #76) | Claude |
+| 7 | 2026-11-19 | hitstop cap (presentation) | 8 → 6 f (now `tessera.feel.hitCap`; `TUNING.hitstop` no longer read by View) | Brief §2.2 (DECISIONS #77) | Claude |
+| 8 | 2026-11-19 | new group `tessera.feel` (33 values, see tuning/tessera.feel.json) | — | Brief §1–2; all presentation-only | Claude |

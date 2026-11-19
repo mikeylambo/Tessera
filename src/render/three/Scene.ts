@@ -43,14 +43,21 @@ export const TESSERA_TOKENS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The one effect the Look Kit post stack does not provide: Last Stand inversion (palette swap that keeps value order
- * readable + 0.003 chromatic aberration, GDD §25). Inserted after the shell's grade pass.
+ * Tessera's own pass after the shell grade: Last Stand inversion (palette swap that keeps value order readable +
+ * 0.003 chromatic aberration, GDD §25), plus three transients — chromatic pulse (Blast / chain ≥ 4, 2–4 f, never
+ * constant), warm grade lift (chain ≥ 6, ~8%) and the Blast inhale dim. All are zeroed under Reduced Motion / Flashes.
  */
-const InvertShader = {
-  uniforms: { tDiffuse: { value: null as THREE.Texture | null }, uInvert: { value: 0 }, uAberration: { value: 0 } },
+const TesseraPostShader = {
+  uniforms: {
+    tDiffuse: { value: null as THREE.Texture | null },
+    uInvert: { value: 0 },
+    uAberration: { value: 0 },
+    uWarm: { value: 0 },
+    uDim: { value: 0 }
+  },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse; uniform float uInvert; uniform float uAberration; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uInvert; uniform float uAberration; uniform float uWarm; uniform float uDim; varying vec2 vUv;
     void main() {
       vec2 d = vUv - 0.5;
       vec3 c = uAberration > 0.0
@@ -58,7 +65,40 @@ const InvertShader = {
         : texture2D(tDiffuse, vUv).rgb;
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       vec3 inv = vec3(0.92, 0.9, 1.0) - c * vec3(0.85, 0.9, 0.7) + vec3(0.0, 0.0, 0.08) * (1.0 - l);
-      gl_FragColor = vec4(mix(c, clamp(inv, 0.0, 1.0) * 0.85, uInvert), 1.0);
+      c = mix(c, clamp(inv, 0.0, 1.0) * 0.85, uInvert);
+      // warm lift: brighten toward amber in proportion to luminance (void stays void)
+      c += uWarm * vec3(1.0, 0.72, 0.38) * (0.25 + l);
+      c *= 1.0 - uDim * (0.6 + 0.4 * length(d) * 2.0);
+      gl_FragColor = vec4(c, 1.0);
+    }`
+};
+
+/** Void depth: a starless vertical gradient sphere — never pure black, reads as infinite (no fog, no depth write). */
+const BackdropShader = {
+  uniforms: { uTop: { value: new THREE.Color(0x07080c) }, uHorizon: { value: new THREE.Color(0x10131a) }, uBottom: { value: new THREE.Color(0x020203) } },
+  vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uBottom; varying vec3 vDir;
+    void main(){
+      float y = vDir.y;
+      vec3 c = y > 0.0 ? mix(uHorizon, uTop, pow(y, 0.6)) : mix(uHorizon, uBottom, pow(-y, 0.45));
+      gl_FragColor = vec4(c, 1.0);
+    }`
+};
+
+/** A faint lattice far below the play plane; scrolls at half speed (parallax) and fades with distance. */
+const DeepLatticeShader = {
+  uniforms: { uOffset: { value: 0 }, uColor: { value: new THREE.Color(PALETTE.lattice) }, uCenter: { value: new THREE.Vector2() } },
+  vertexShader: `varying vec2 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: /* glsl */ `
+    uniform float uOffset; uniform vec3 uColor; uniform vec2 uCenter; varying vec2 vW;
+    void main(){
+      vec2 p = vec2(vW.x, vW.y + uOffset) / 8.0;
+      vec2 g = abs(fract(p - 0.5) - 0.5) / fwidth(p);
+      float line = 1.0 - min(min(g.x, g.y), 1.0);
+      float dist = length(vW - uCenter);
+      float fade = exp(-dist * 0.028);
+      gl_FragColor = vec4(uColor * line * fade * 0.16, 1.0);
     }`
 };
 
@@ -74,7 +114,9 @@ export class TesseraScene {
   readonly camera: THREE.PerspectiveCamera;
   readonly key: THREE.DirectionalLight;
   readonly look: LookKit;
-  private readonly invert: ShaderPass;
+  private readonly post: ShaderPass;
+  private readonly deep: THREE.Mesh;
+  private readonly backdrop: THREE.Mesh;
   readonly world = new THREE.Group();
   private dust: THREE.Points;
   private monoliths = new THREE.Group();
@@ -108,6 +150,15 @@ export class TesseraScene {
     this.scene.add(this.key, this.key.target);
     this.scene.add(new THREE.HemisphereLight(0x8fa3c7, 0x0a0b10, 0.55));
 
+    // void depth (§1.1): gradient backdrop + parallax lattice far below
+    this.backdrop = new THREE.Mesh(new THREE.SphereGeometry(170, 24, 16), new THREE.ShaderMaterial({ ...BackdropShader, side: THREE.BackSide, depthWrite: false, fog: false }));
+    this.backdrop.renderOrder = -10;
+    this.scene.add(this.backdrop);
+    const deepMat = new THREE.ShaderMaterial({ ...DeepLatticeShader, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    this.deep = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), deepMat);
+    this.deep.position.y = -34;
+    this.scene.add(this.deep);
+
     this.dust = this.makeDust();
     this.scene.add(this.dust);
     this.makeMonoliths();
@@ -118,9 +169,9 @@ export class TesseraScene {
     if (opts.mobile) tunables.set("look.post", "quality", "low"); // mobile post at half resolution (GDD §45 platform constraint)
     this.look = createLook({ renderer: this.renderer, scene: this.scene, camera: this.camera, palette, particles: opts.mobile ? 1500 : 4000 });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    this.invert = new ShaderPass(InvertShader);
+    this.post = new ShaderPass(TesseraPostShader);
     const passes = this.look.post.composer.passes;
-    this.look.post.composer.insertPass(this.invert, Math.max(0, passes.length - 1));
+    this.look.post.composer.insertPass(this.post, Math.max(0, passes.length - 1));
   }
 
   private makeDust(): THREE.Points {
@@ -154,10 +205,13 @@ export class TesseraScene {
     this.look.resize(w, h, Math.min(window.devicePixelRatio || 1, 2));
   }
 
-  /** Last Stand inversion amount 0..1 and aberration. */
-  setInversion(amount: number, aberration: number): void {
-    this.invert.uniforms.uInvert!.value = amount;
-    this.invert.uniforms.uAberration!.value = aberration;
+  /** Last Stand inversion 0..1, total chromatic aberration (Last Stand + transient), warm lift, inhale dim. */
+  setPost(p: { invert: number; aberration: number; warm: number; dim: number }): void {
+    const u = this.post.uniforms;
+    u.uInvert!.value = p.invert;
+    u.uAberration!.value = p.aberration;
+    u.uWarm!.value = p.warm;
+    u.uDim!.value = p.dim;
   }
 
   /** Atmosphere + shadow camera follow the focus point. `dt` is presentation time. */
@@ -165,6 +219,11 @@ export class TesseraScene {
     this.key.position.set(-9, 18, focusZ + 6);
     this.key.target.position.set(0, 0, focusZ - 4);
     this.monoliths.position.z = focusZ * 0.6;
+    this.backdrop.position.set(0, 0, focusZ);
+    this.deep.position.z = focusZ;
+    const dm = this.deep.material as THREE.ShaderMaterial;
+    dm.uniforms.uOffset!.value = -focusZ * 0.5; // half-speed parallax against the play plane
+    dm.uniforms.uCenter!.value.set(0, focusZ - 10);
     for (const m of this.monoliths.children) m.rotation.y += (m.userData.drift as number) * dt;
     const p = this.dust.geometry.getAttribute("position") as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i++) {

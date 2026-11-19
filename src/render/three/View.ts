@@ -10,6 +10,7 @@ import { FigureView } from "./Figure";
 import { LatticeView, OverlayView } from "./Lattice";
 import { VfxView } from "./Vfx";
 import { TesseraFeel } from "./Feel";
+import { FEEL } from "./FeelTuning";
 
 export interface ViewSettings {
   reducedMotion: boolean;
@@ -57,6 +58,10 @@ export class WorldView {
 
   attach(world: World): void {
     this.world = world;
+    for (const j of this.jobs) j.run(); // flush staggered shatters from the previous world
+    this.jobs = [];
+    this.feel.lastStandPush = 0;
+    this.figure.guttering = false;
     this.lattice.minRow = -1e6;
     this.overlay.reset();
     this.invert = this.invertTarget = 0;
@@ -75,25 +80,66 @@ export class WorldView {
     return { x: wx(x), y: this.top(x, z) + y, z: wz(z) };
   }
 
-  /** Route sim events to presentation via the Impact Scale (GDD §10). */
+  /** Presentation-only delayed jobs (staggered chain shatters). Counted in real frames; never touches the sim. */
+  private jobs: Array<{ at: number; run: () => void }> = [];
+  private clock = 0;
+  private later(frames: number, run: () => void): void {
+    if (frames <= 0) run();
+    else this.jobs.push({ at: this.clock + frames, run });
+  }
+  /** Transient post state (frames left / amounts). */
+  private caLeft = 0;
+  private caAmt = 0;
+  private warm = 0;
+  private dimLeft = 0;
+
+  /** Chromatic pulse for `frames` (Blast, chain ≥ 4). Never constant; Reduced Motion / Flashes cut it. */
+  private aberrate(frames: number, amount: number): void {
+    if (this.settings.reducedMotion || this.settings.reduceFlashes) return;
+    this.caLeft = Math.max(this.caLeft, frames);
+    this.caAmt = Math.max(this.caAmt, amount);
+  }
+
+  /** Hit-stop for a resolving chain of `n`: base + 1 per extra kill, capped (presentation only). */
+  static hitstopFor(n: number): number {
+    return Math.min(FEEL.hitCap, FEEL.hitBase + Math.max(0, n - 1) * FEEL.hitPerChain);
+  }
+
+  /** Route sim events to presentation via the Impact Scale (GDD §10) and the detonation-feel spec. */
   handle(events: readonly SimEvent[]): void {
     const w = this.world;
     if (!w) return;
-    let kills = 0;
+    let chainN = 0;
     let heavy = false;
+    let blastAt: { x: number; z: number } | null = null;
+    let riseOrder = 0;
     for (const e of events) {
-      this.tiles.onEvent(e, w.frame);
+      if (e.t === "Kill") chainN = Math.max(chainN, e.chain);
+      if (e.t === "Blast") blastAt = { x: e.x, z: e.z };
+    }
+    const stagger = FEEL.chainStaggerFrames;
+    for (const e of events) {
+      // chained tiles rise in sequence (chain order) so a chain of 9 reads as a wave; Blast keeps its radial ring
+      const extra = e.t === "TileRise" && !blastAt && chainN > 1 ? riseOrder++ * stagger : e.t === "TileRise" && blastAt ? e.delay * 0.5 : 0;
+      this.tiles.onEvent(e, w.frame, this.settings.reducedMotion ? 0 : extra);
       this.overlay.onEvent(e);
       switch (e.t) {
         case "Kill": {
-          kills++;
           const isHeavy = e.chain >= 3 || e.type === "iron";
           heavy ||= isHeavy;
-          this.cubes.kill(e.id);
-          this.vfx.kill(e.x, e.z, this.top(e.x, e.z), e.type, isHeavy);
-          if (e.type === "forbidden") {
-            this.vfx.implode(e.x, e.z);
-            this.feel.impact("tessera.forbidden", this.pos(e.x, e.z));
+          const delay = this.settings.reducedMotion ? 0 : e.blast && blastAt ? FEEL.blastInhaleFrames + Math.max(Math.abs(e.x - blastAt.x), Math.abs(e.z - blastAt.z)) * stagger : e.index * stagger;
+          const shards = Math.min(FEEL.shardsMax, FEEL.shardsMin + e.index);
+          const { x, z, type, id } = e;
+          const y = this.top(x, z);
+          if (delay > 0) this.cubes.hold(id);
+          this.later(delay, () => {
+            this.cubes.kill(id);
+            this.vfx.kill(x, z, y, type, isHeavy, shards);
+            this.vfx.cellFlash(x, z, y, FEEL.cellFlashFrames);
+          });
+          if (type === "forbidden") {
+            this.vfx.implode(x, z);
+            this.feel.impact("tessera.forbidden", this.pos(x, z));
           }
           break;
         }
@@ -102,18 +148,37 @@ export class WorldView {
           break;
         case "Chain":
           this.vfx.chain(e.x, e.z, e.n);
+          if (e.n >= FEEL.rippleChainMin) this.tiles.ripple(e.x, e.z, Math.min(2, 0.6 + e.n * 0.12));
+          if (e.n >= FEEL.caChainMin) this.aberrate(FEEL.caFrames, FEEL.caAmount * (e.n >= FEEL.gradeChainMin ? 1 : 0.6));
+          if (e.n >= FEEL.gradeChainMin && !this.settings.reduceFlashes) this.warm = FEEL.gradeLift;
           break;
         case "BlastCharge":
           this.figure.flareToward(e.x, e.z);
           this.vfx.blastCharge(e.x, e.z);
           break;
-        case "Blast":
-          this.vfx.blast(e.x, e.z, e.w);
-          this.feel.impact("tessera.climax", this.pos(e.x, e.z, 0.2));
-          if (!this.settings.reducedMotion) this.feel.push = 1.2;
+        case "Blast": {
+          // inhale (dim) → shockwave → staggered chain → rising wave → kick → bass drop (audio)
+          if (!this.settings.reducedMotion) this.dimLeft = FEEL.blastInhaleFrames;
+          const { x, z, w: bw } = e;
+          this.later(this.settings.reducedMotion ? 0 : FEEL.blastInhaleFrames, () => {
+            this.vfx.blast(x, z, bw);
+            this.feel.impact("tessera.climax", this.pos(x, z, 0.2));
+            this.aberrate(FEEL.aberrationBlastFrames, FEEL.caAmount);
+            if (!this.settings.reducedMotion) this.feel.push = Math.min(FEEL.kickCap, FEEL.kickBase + chainN * FEEL.kickPerKill);
+          });
           break;
+        }
         case "MarkPlaced":
           this.figure.flareToward(e.x, e.z);
+          break;
+        case "Detonate":
+          if (e.marks > 0) this.figure.detonateFlare();
+          break;
+        case "Miss":
+          this.feel.shakePx(this.settings.reducedMotion ? 0 : FEEL.missShakePx);
+          break;
+        case "Step":
+          this.tiles.ember(e.from.x, e.from.z);
           break;
         case "Crush":
           this.feel.impact("tessera.crush", this.pos(e.x, e.z));
@@ -138,10 +203,14 @@ export class WorldView {
         case "LastStand":
           this.invertTarget = e.on ? 1 : 0;
           this.feel.extraUp = e.on ? 2 : 0;
+          this.feel.lastStandPush = e.on ? FEEL.lastStandPush : 0;
+          this.figure.guttering = e.on;
           break;
         case "Purify":
           this.vfx.lightWave(w.player.x, w.player.z);
-          this.feel.impact("tessera.climax", this.pos(w.player.x, w.player.z, 1));
+          this.feel.impact("tessera.purify", this.pos(w.player.x, w.player.z, 1));
+          this.feel.lastStandPush = 0;
+          this.figure.reignite();
           break;
         case "Fall":
           this.feel.hold = true;
@@ -149,7 +218,7 @@ export class WorldView {
         case "Turn":
           this.lattice.minRow = e.edgeZ;
           this.cubes.departingFall();
-          this.feel.impact("tessera.heavy", this.pos(w.player.x, w.player.z, 0));
+          this.feel.impact("tessera.turn", this.pos(w.player.x, w.player.z, 0));
           break;
         case "ChamberStart":
           this.feel.extraUp = 12; // GDD §15: Chamber rises toward a near top-down view (~57° pitch)
@@ -161,12 +230,12 @@ export class WorldView {
           break;
       }
     }
-    if (kills > 0) {
+    if (chainN > 0) {
       const head = events.find((e) => e.t === "Kill");
       const at = head && head.t === "Kill" ? this.pos(head.x, head.z) : undefined;
-      this.feel.impact(heavy ? "tessera.heavy" : "tessera.kill", at);
-      // presentation-only hitstop: 3 f + (kills − 1), capped at 8 f (GDD §10)
-      this.feel.hitstopFrames(Math.min(TUNING.hitstop.cap, TUNING.hitstop.base + (kills - 1) * TUNING.hitstop.perExtraKill));
+      if (!blastAt) this.feel.impact(heavy ? "tessera.heavy" : "tessera.kill", at);
+      // presentation-only hit-stop: 3 f + 1 per extra chain kill, capped at 6 f (DECISIONS #46, #77)
+      this.feel.hitstopFrames(WorldView.hitstopFor(chainN));
     }
   }
 
@@ -178,6 +247,16 @@ export class WorldView {
     const pdt = step.presentationDt;
     this.t += realDt;
     const dtFrames = realDt * 60;
+    this.clock += dtFrames;
+    if (this.jobs.length) {
+      const due = this.jobs.filter((j) => j.at <= this.clock);
+      this.jobs = this.jobs.filter((j) => j.at > this.clock);
+      for (const j of due) j.run();
+    }
+    this.caLeft = Math.max(0, this.caLeft - dtFrames);
+    if (this.caLeft <= 0) this.caAmt = 0;
+    this.warm *= Math.exp(-realDt * 5);
+    this.dimLeft = Math.max(0, this.dimLeft - dtFrames);
     if (this.warnLeft > 0) {
       this.warnLeft -= dtFrames;
       if (this.warnLeft <= 0) this.warnRow = null;
@@ -198,7 +277,8 @@ export class WorldView {
     this.feel.updateCamera(this.scene.camera, focus, !ch && nearest - front > 10, realDt);
     this.scene.updateAtmosphere(pz, pdt);
     this.invert += (this.invertTarget - this.invert) * Math.min(1, realDt * 3);
-    this.scene.setInversion(this.invert, this.settings.reducedMotion ? 0 : this.invert * 0.003);
+    const lsCA = this.settings.reducedMotion ? 0 : this.invert * 0.003;
+    this.scene.setPost({ invert: this.invert, aberration: lsCA + this.caAmt, warm: this.warm, dim: this.dimLeft > 0 ? FEEL.blastInhaleDim : 0 });
     this.scene.render(pdt);
   }
 

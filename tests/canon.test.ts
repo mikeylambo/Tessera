@@ -19,10 +19,10 @@ describe("tuning canon (presentation values)", () => {
   it("shake canon respects the 0.4-unit maximum (GDD §15)", () => {
     expect(canon("feel.shake").values.maxTranslate as number).toBeLessThanOrEqual(0.4);
   });
-  it("post canon follows the §23 recipe: bloom threshold 0.85, no grain, no base chromatic aberration", () => {
+  it("post canon: selective bloom (HDR emissives only, threshold ≥ 1), grain very low, never constant chromatic aberration (DECISIONS #76)", () => {
     const v = canon("look.post").values;
-    expect(v.bloomThreshold).toBe(0.85);
-    expect(v.grain).toBe(false);
+    expect(v.bloomThreshold as number).toBeGreaterThanOrEqual(1);
+    expect(v.grainAmount as number).toBeLessThanOrEqual(0.02);
     expect(v.chromatic).toBe(false);
   });
 });

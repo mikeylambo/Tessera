@@ -19,6 +19,7 @@ interface CubeView {
   shadow: THREE.Mesh;
   escaping: number; // −1 alive; else frames into the escape tumble
   seen: boolean;
+  held: boolean;
 }
 
 const SCALE = 0.95;
@@ -106,12 +107,18 @@ export class CubesView {
     const shadow = new THREE.Mesh(this.shadowGeo, this.shadowMat);
     shadow.renderOrder = 1;
     this.group.add(root, shadow);
-    const v: CubeView = { id, type, root, body, pips, core, shadow, escaping: -1, seen: true };
+    const v: CubeView = { id, type, root, body, pips, core, shadow, escaping: -1, seen: true, held: false };
     this.views.set(id, v);
     return v;
   }
 
-  /** Called on Kill: hide immediately (VFX takes over). */
+  /** A chain kill whose shatter is staggered: keep drawing the cube (frozen) until `kill(id)`. */
+  hold(id: number): void {
+    const v = this.views.get(id);
+    if (v) v.held = true;
+  }
+
+  /** Called on Kill (possibly staggered): hide (VFX takes over). */
   kill(id: number): void {
     const v = this.views.get(id);
     if (!v) return;
@@ -206,7 +213,7 @@ export class CubesView {
     }
     // unseen: escaped (tumble) or killed elsewhere
     for (const v of [...this.views.values()]) {
-      if (v.seen) continue;
+      if (v.seen || v.held) continue;
       if (v.escaping < 0 && this.fallAll) v.escaping = 0;
       if (v.escaping < 0) {
         this.dispose(v);

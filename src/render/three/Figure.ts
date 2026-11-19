@@ -4,6 +4,7 @@ import { TUNING } from "../../data/tuning";
 import { PALETTE } from "../../data/palette";
 import { DIR_DX, DIR_DZ } from "../../sim/types";
 import { dotTexture } from "./textures";
+import { FEEL } from "./FeelTuning";
 import { wx, wz } from "./Scene";
 
 /** The figure (GDD §13, §23, §24): slim obelisk 0.5 × 1.4 with a floating amber core. */
@@ -22,6 +23,11 @@ export class FigureView {
   readonly corePos = new THREE.Vector3();
   coreLevel = 1;
   reducedMotion = false;
+  /** Detonate: the core flares (§1.3). */
+  private burst = 0;
+  /** Last Stand: the core gutters (flickers and dims); Purify reignites it. */
+  guttering = false;
+  private gutter = 0;
 
   constructor() {
     const geo = new THREE.CylinderGeometry(0.16, 0.25, 1.4, 4, 1);
@@ -54,6 +60,17 @@ export class FigureView {
   flareToward(x: number, z: number): void {
     this.flare = 1;
     this.flareDir.set(wx(x) - this.root.position.x, 0, wz(z) - this.root.position.z).normalize();
+  }
+
+  /** Detonate flare (bigger than the Mark gesture, no direction). */
+  detonateFlare(): void {
+    this.burst = 1;
+  }
+
+  /** Purify: the guttering core reignites with a flare. */
+  reignite(): void {
+    this.guttering = false;
+    this.burst = 1.6;
   }
 
   update(w: World, alpha: number, dt: number, tileTop: (x: number, z: number) => number): void {
@@ -105,7 +122,14 @@ export class FigureView {
     const conn = w.connected().length;
     const target = p.state === "falling" ? Math.max(0, 1 - fr / TUNING.movement.fallFrames) : 0.75 + Math.min(0.5, conn / 60);
     this.coreLevel += (target - this.coreLevel) * Math.min(1, dt * 4);
-    const k = this.coreLevel * (1 + this.flare * 0.8);
+    // breath on the tick: a slow swell peaking on each tick (the music's downbeat), never in Reduced Motion
+    const phase = (w.f + alpha) / Math.max(1, w.tickLen);
+    const breath = this.reducedMotion ? 0 : FEEL.coreBreath * (0.5 + 0.5 * Math.cos(phase * Math.PI * 2));
+    this.burst = Math.max(0, this.burst - dt * 4);
+    this.gutter += ((this.guttering ? 1 : 0) - this.gutter) * Math.min(1, dt * 3);
+    const flicker = this.reducedMotion ? 0 : (Math.sin(this.t * 23) * Math.sin(this.t * 7.3 + 1) > 0.35 ? 0.45 : 0) + 0.12 * Math.sin(this.t * 41);
+    const gutterK = 1 - this.gutter * (0.42 + flicker * 0.6);
+    const k = this.coreLevel * (1 + this.flare * 0.8 + breath + this.burst * 1.4) * gutterK;
     (this.core.material as THREE.MeshBasicMaterial).color.setHex(PALETTE.core).multiplyScalar(2.2 + 3 * k);
     this.halo.position.copy(this.core.position);
     this.halo.scale.setScalar(1.1 + 0.6 * k);

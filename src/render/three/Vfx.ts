@@ -51,6 +51,7 @@ export class VfxView {
   private dummy = new THREE.Object3D();
   private charges = new Map<string, VfxHandle>();
   reduceFlashes = false;
+  private flashes: Array<{ mesh: THREE.Mesh; left: number; max: number }> = [];
 
   constructor(private readonly look: LookKit) {
     const geo = new THREE.TetrahedronGeometry(0.22, 0);
@@ -59,6 +60,13 @@ export class VfxView {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.count = 0;
     this.group.add(this.mesh);
+    const fg = new THREE.PlaneGeometry(TILE * 0.98, TILE * 0.98).rotateX(-Math.PI / 2);
+    for (let i = 0; i < 12; i++) {
+      const m = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.mark).multiplyScalar(3), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      m.visible = false;
+      this.group.add(m);
+      this.flashes.push({ mesh: m, left: 0, max: 1 });
+    }
     for (let i = 0; i < SHARD_MAX; i++) {
       this.shards.push({ alive: false, p: new THREE.Vector3(), v: new THREE.Vector3(), r: new THREE.Euler(), w: new THREE.Vector3(), s: 1, life: 0, max: 1, color: new THREE.Color(), implode: 0 });
     }
@@ -68,7 +76,7 @@ export class VfxView {
     return { x: wx(x), y, z: wz(z) };
   }
 
-  private spawnShard(at: THREE.Vector3, color: number, speed: number, implode: number, up = 1): void {
+  private spawnShard(at: THREE.Vector3, color: number, speed: number, implode: number, up = 1, size = 1): void {
     const s = this.shards.find((x) => !x.alive);
     if (!s) return;
     s.alive = true;
@@ -78,18 +86,31 @@ export class VfxView {
     s.v.y += up * cosmetic.range(2, 5);
     s.r.set(cosmetic.rand() * 6, cosmetic.rand() * 6, cosmetic.rand() * 6);
     s.w.set(cosmetic.range(-8, 8), cosmetic.range(-8, 8), cosmetic.range(-8, 8));
-    s.s = cosmetic.range(0.6, 1.4);
+    s.s = cosmetic.range(0.6, 1.4) * size;
     s.life = 0;
     s.max = cosmetic.range(0.7, 1.2);
     s.color.setHex(color);
     s.implode = implode;
   }
 
-  /** Signature kill: 24 shards collapse inward then burst outward, plus a small amber seam ring. */
-  kill(x: number, z: number, y: number, type: CubeType, heavy: boolean): void {
+  /**
+   * Signature kill: the cube shatters into `shards` heavy pieces (6–10, more as a chain climbs) that fall past the
+   * floor into the void and fade, plus a short amber flash on the cell.
+   */
+  kill(x: number, z: number, y: number, type: CubeType, heavy: boolean, shards = 8): void {
     const at = new THREE.Vector3(wx(x), y + HALF, wz(z));
-    for (let i = 0; i < 24; i++) this.spawnShard(at, SHARD_COLOR[type], heavy ? 9 : 6, 0.1, 1);
+    for (let i = 0; i < shards; i++) this.spawnShard(at, SHARD_COLOR[type], heavy ? 5 : 3.5, 0.06, 0.6, 2.1);
     this.look.play("fx.impact.burst", { position: this.at(x, z, y + HALF), scale: heavy ? 0.7 : 0.4, tint: TOKEN[type] });
+  }
+
+  /** A 4-frame amber flash on the killed cell (flat, additive). Reduce Flashes halves it. */
+  cellFlash(x: number, z: number, y: number, frames: number): void {
+    if (frames <= 0) return;
+    const f = this.flashes.find((q) => q.left <= 0);
+    if (!f) return;
+    f.left = f.max = frames;
+    f.mesh.position.set(wx(x), y + 0.05, wz(z));
+    f.mesh.visible = true;
   }
 
   ironSpark(x: number, z: number): void {
@@ -145,6 +166,13 @@ export class VfxView {
 
   /** `dt` is presentation time (≈0 during hitstop). */
   update(dt: number, core: THREE.Vector3): void {
+    for (const f of this.flashes) {
+      if (f.left <= 0) continue;
+      f.left -= dt * 60;
+      const m = f.mesh.material as THREE.MeshBasicMaterial;
+      m.opacity = Math.max(0, f.left / f.max) * (this.reduceFlashes ? 0.35 : 0.9);
+      if (f.left <= 0) f.mesh.visible = false;
+    }
     let n = 0;
     for (const s of this.shards) {
       if (!s.alive) continue;

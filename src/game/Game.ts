@@ -25,11 +25,14 @@ const WITNESSES = import.meta.glob("../../tests/witness/*.json");
 
 const LINES = { tessera: "Tessera.", beautiful: "Beautiful.", holdOn: "Hold on.", purified: "Purified.", again: "Again." } as const;
 
-/** Mobile vibration only; gamepad rumble comes from the Feel Kit impact bundles (weak/strong 0 here). */
+/**
+ * Mobile vibration only; gamepad rumble comes from the Feel Kit impact bundles (weak/strong 0 here).
+ * Detonation feel: a single kill is a 10 ms tick (tessera.feel.vibrateKillMs), a Blast a strong 150 ms pulse.
+ */
 const HAPTICS = {
-  kill: { mobile: 60, duration: 60, weak: 0, strong: 0 },
-  chain: { mobile: 120, duration: 120, weak: 0, strong: 0 },
-  blast: { mobile: [250], duration: 250, weak: 0, strong: 0 },
+  kill: { mobile: 10, duration: 10, weak: 0, strong: 0 },
+  chain: { mobile: 24, duration: 24, weak: 0, strong: 0 },
+  blast: { mobile: [150], duration: 150, weak: 0, strong: 0 },
   crush: { mobile: 180, duration: 180, weak: 0, strong: 0 },
   crumble: { mobile: 400, duration: 400, weak: 0, strong: 0 }
 };
@@ -89,6 +92,8 @@ export class Game {
   readonly flags: UrlFlags;
   /** Paused externally for deterministic stepping (window.__GAME.stepFrames). */
   manual = false;
+  /** Dev/evidence: the realtime loop stops rendering; `__GAME.advance()` renders instead. */
+  viewFrozen = false;
   lastEvents: SimEvent[] = [];
   /** Every cell the run has held ground on (share card silhouette; presentation-side). */
   trail = new Map<number, { x: number; z: number; start?: boolean }>();
@@ -214,7 +219,8 @@ export class Game {
       this.alpha = Math.max(0, Math.min(1, this.acc * 60));
     } else if (this.phase === "replay") this.stepReplay(dt);
     this.view.cursor = this.phase === "playing" ? this.devices.visibleCursor() : null;
-    this.view.frame(this.phase === "playing" ? this.alpha : 0, dt);
+    this.view.feel.orbit = this.phase === "title" || this.phase === "results"; // slow drift, never in play
+    if (!this.viewFrozen) this.view.frame(this.phase === "playing" ? this.alpha : 0, dt);
     const w = this.phase === "replay" ? this.replay?.world : this.world;
     if (w && (this.phase === "playing" || this.phase === "replay")) {
       this.music.update({ frame: w.frame, alpha: this.alpha, tick: w.tick, f: w.f, tickLen: w.tickLen, formationsSeen: this.formationsSeen, groundRows: this.groundRows(w), lastStand: w.lastStand.active });

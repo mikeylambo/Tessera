@@ -68,6 +68,18 @@ export function installGameApi(game: Game): void {
       game.manual = on;
       return on;
     },
+    /** Evidence captures: stop the realtime render; `advance(n)` then steps sim + presentation in lockstep at 60 Hz. */
+    freezeView: (on: boolean) => {
+      game.viewFrozen = on;
+      return on;
+    },
+    advance: (n: number, sim = true) => {
+      for (let i = 0; i < n; i++) {
+        if (sim && game.world && !game.world.ended) api.input({});
+        game.view.frame(0, 1 / 60);
+      }
+      return game.world?.frame ?? 0;
+    },
     stepFrames: (n: number) => {
       game.stepFrames(n);
       return game.world?.frame ?? 0;

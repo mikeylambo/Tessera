@@ -270,3 +270,25 @@ export function scarTexture(): THREE.Texture {
   g.stroke();
   return finish(key, c);
 }
+
+/** Soft horizontal band (the warm edge-light that sweeps a newly risen tile, GDD §1.2 of the visual-bar brief). */
+export function sweepTexture(): THREE.Texture {
+  const key = "sweep";
+  if (cache.has(key)) return cache.get(key)!;
+  const [c, g] = canvas(64);
+  const grd = g.createLinearGradient(0, 0, 0, 64);
+  grd.addColorStop(0, "rgba(255,255,255,0)");
+  grd.addColorStop(0.5, "rgba(255,255,255,1)");
+  grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  const edge = g.createLinearGradient(0, 0, 64, 0);
+  edge.addColorStop(0, "rgba(0,0,0,1)");
+  edge.addColorStop(0.12, "rgba(0,0,0,0)");
+  edge.addColorStop(0.88, "rgba(0,0,0,0)");
+  edge.addColorStop(1, "rgba(0,0,0,1)");
+  g.globalCompositeOperation = "destination-out";
+  g.fillStyle = edge;
+  g.fillRect(0, 0, 64, 64);
+  return finish(key, c);
+}

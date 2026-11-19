@@ -4,6 +4,8 @@
  * witness to just before a frame, then records video + stills while presentation runs in real time.
  *   node tools/capture.mjs --stage 14 --at 852 --name blast     (Blast terraform)
  *   node tools/capture.mjs --stage 81 --at 864 --name turn      (Turn rotation)
+ *   --stills 0,3,8,16,30,60   presentation frames after the event at which to take exact stills (sim + render step
+ *                             in lockstep at 60 Hz via __GAME.advance, so SwiftShader speed can't smear the timing)
  * Requires `npm run build`. Output: artifacts/<name>/. Not part of `gates`.
  */
 import { spawn } from "node:child_process";
@@ -19,10 +21,11 @@ const at = Number(arg("at", "852"));
 const name = arg("name", `stage${stage}`);
 /** --best-blast: instead of the witness's timing, wait until the oldest Glyph's 3×3 holds the most cubes, then Blast. */
 const bestBlast = process.argv.includes("--best-blast");
+const stills = arg("stills", "2,6,12,20,40,90").split(",").map(Number);
 const OUT = `artifacts/${name}`;
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-const PORT = 4182;
+const PORT = Number(arg("port", "4182"));
 const server = spawn("npx", ["vite", "preview", "--port", String(PORT), "--strictPort"], { stdio: "ignore", detached: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://localhost:${PORT}/`)).ok) break; } catch { await sleep(250); } }
@@ -72,16 +75,22 @@ try {
     });
     console.log("cubes in the Blast's 3x3:", caught);
     await page.screenshot({ path: `${OUT}/01-before.png` });
-    await page.evaluate(() => { const g = window.__GAME; g.input({ blast: true }); for (let i = 0; i < 6; i++) g.input({}); });
+    await page.evaluate(() => { const g = window.__GAME; g.freezeView(true); g.input({ blast: true }); g.advance(4); g.freezeView(false); });
   } else {
     await replayTo(Math.max(f0, at - 2));
     await page.screenshot({ path: `${OUT}/01-before.png` });
-    await replayTo(at + 8); // the event resolves (Blast: 4 f charge)
+    await page.evaluate(() => window.__GAME.freezeView(true));
+    await replayTo(at + 1); // the input frame resolves; stills then step sim + presentation together
   }
-  for (const [n, wait] of [["02-impact", 30], ["03-ripple", 220], ["04-rise", 320], ["05-settle", 900]]) {
-    await sleep(wait);
-    await page.screenshot({ path: `${OUT}/${n}.png` });
+  // exact stills: freeze the realtime render and step sim + presentation together
+  await page.evaluate(() => window.__GAME.freezeView(true));
+  let done = 0;
+  for (const [i, f] of stills.entries()) {
+    await page.evaluate((n) => window.__GAME.advance(n), f - done);
+    done = f;
+    await page.screenshot({ path: `${OUT}/${String(i + 2).padStart(2, "0")}-f${String(f).padStart(3, "0")}.png` });
   }
+  await page.evaluate(() => window.__GAME.freezeView(false));
   await page.evaluate(() => window.__GAME.manual(false));
   await sleep(2500);
   await page.screenshot({ path: `${OUT}/06-after.png` });
