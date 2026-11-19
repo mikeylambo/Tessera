@@ -29,7 +29,13 @@ export default async function handler(req: Request): Promise<Response> {
     desc = `${dailyDay(Number(d))} · one board, everyone. How deep can you go?`;
     image = `${origin}/api/og?d=${d}`;
   }
-  const page = await fetch(`${origin}/index.html`);
+  // forward the caller's protection credentials (preview deployments are protected; production crawlers need none)
+  const fwd: Record<string, string> = {};
+  for (const k of ["cookie", "x-vercel-protection-bypass", "authorization"]) {
+    const v = req.headers.get(k);
+    if (v) fwd[k] = v;
+  }
+  const page = await fetch(`${origin}/index.html`, { headers: fwd });
   let html = await page.text();
   const tags = [
     `<meta property="og:type" content="website">`,
