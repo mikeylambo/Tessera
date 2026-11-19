@@ -1,6 +1,6 @@
 // Share image (1200×630) for link unfurls: the run's spoiler-free ground silhouette in the locked palette.
 import { ImageResponse } from "@vercel/og";
-import { dailyDay, dailyIndex, runById, topRun, type RunMeta } from "./_shared";
+import { dailyDay, dailyIndex, runById, topRun, type RunMeta } from "./_shared.js";
 
 // Node runtime: current @vercel/og references a Node builtin the edge runtime rejects.
 

@@ -1,6 +1,6 @@
 // `/d/<n>` and `/r/<id>` (rewritten here by vercel.json): the game's index.html with Open Graph tags, so links unfurl
 // as the share image in iMessage, Discord and X. The SPA then routes from location.pathname.
-import { dailyDay, dailyIndex, runById } from "./_shared";
+import { dailyDay, dailyIndex, runById } from "./_shared.js";
 
 export const config = { runtime: "edge" };
 
