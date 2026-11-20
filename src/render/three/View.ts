@@ -12,7 +12,6 @@ import { VfxView } from "./Vfx";
 import { TesseraFeel } from "./Feel";
 import { FEEL } from "./FeelTuning";
 import { GhostView } from "./Ghost";
-import { PALETTE } from "../../data/palette";
 
 export interface ViewSettings {
   reducedMotion: boolean;
@@ -32,8 +31,6 @@ export class WorldView {
   readonly overlay = new OverlayView();
   readonly vfx: VfxView;
   readonly ghost = new GhostView();
-  /** Exit objective: a beacon line across the exit row, glowing the whole stage (DECISIONS #84). */
-  private exitLine: THREE.Mesh;
   private failDim = 0;
   /** Daily ghost world (another validated run of the same seed), stepped by Game in lockstep. */
   ghostWorld: World | null = null;
@@ -51,10 +48,6 @@ export class WorldView {
     this.scene = new TesseraScene({ canvas, mobile });
     this.vfx = new VfxView(this.scene.look);
     this.feel = new TesseraFeel(this.scene.look);
-    const eg = new THREE.PlaneGeometry(TUNING.grid.columns * 2.0 + 0.6, 0.5).rotateX(-Math.PI / 2);
-    this.exitLine = new THREE.Mesh(eg, new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.beacon).multiplyScalar(2.2), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-    this.exitLine.visible = false;
-    this.scene.world.add(this.exitLine);
     this.scene.world.add(this.lattice.mesh, this.tiles.group, this.cubes.group, this.figure.root, this.overlay.group, this.vfx.group, this.ghost.group);
   }
 
@@ -75,9 +68,6 @@ export class WorldView {
     this.feel.lastStandPush = 0;
     this.figure.guttering = false;
     this.failDim = 0;
-    const o = world.config.mode === "hundred" ? world.config.stage?.objective : undefined;
-    this.exitLine.visible = o?.type === "exit";
-    if (o?.type === "exit") this.exitLine.position.set(0, 0.06, wz(o.z) + 1.0); // the near edge of the exit row
     this.lattice.minRow = -1e6;
     this.overlay.reset();
     this.invert = this.invertTarget = 0;
@@ -276,7 +266,6 @@ export class WorldView {
     if (this.caLeft <= 0) this.caAmt = 0;
     this.warm *= Math.exp(-realDt * 5);
     this.dimLeft = Math.max(0, this.dimLeft - dtFrames);
-    if (this.exitLine.visible) (this.exitLine.material as THREE.MeshBasicMaterial).opacity = 0.45 + 0.25 * Math.sin(this.t * 2.4);
     if (this.warnLeft > 0) {
       this.warnLeft -= dtFrames;
       if (this.warnLeft <= 0) this.warnRow = null;

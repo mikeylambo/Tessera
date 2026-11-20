@@ -22,6 +22,8 @@ export interface ScreenSpec {
   onPick: (id: string) => void;
   onBack?: () => void;
   className?: string;
+  /** Tab bar above the list: Q / E, LB / RB or click to switch. */
+  tabs?: { labels: string[]; active: number; onTab: (i: number) => void };
 }
 
 const CSS = /* css */ `
@@ -34,6 +36,11 @@ const CSS = /* css */ `
 .t-title { font-family:"Cinzel", "Trajan Pro", Georgia, serif; font-weight:400; letter-spacing:0.42em; text-indent:0.42em; font-size:calc(26px * var(--ui-scale)); color:var(--ink); margin:0 0 6px; text-shadow:0 0 18px rgba(255,179,71,0.18); text-align:center; }
 .t-sub { color:var(--dim); letter-spacing:0.2em; font-size:calc(11px * var(--ui-scale)); margin:0 0 26px; text-transform:uppercase; text-align:center; }
 .t-body { max-width:520px; color:var(--ink); line-height:1.7; text-align:center; margin:0 0 22px; opacity:0.9; }
+.t-tabs { display:flex; gap:4px; margin:0 0 18px; }
+.t-tab { min-height:40px; padding:8px 14px; background:transparent; border:0; border-bottom:1px solid var(--line); color:var(--dim); font:inherit; font-size:calc(11px * var(--ui-scale)); letter-spacing:0.2em; text-transform:uppercase; cursor:pointer; transition:color 120ms, border-color 120ms; }
+.t-tab:hover { color:var(--ink); }
+.t-tab[data-on="1"] { color:var(--amber); border-bottom-color:var(--amber); }
+.t-tabhint { color:var(--dim); font-size:calc(10px * var(--ui-scale)); letter-spacing:0.2em; align-self:center; opacity:0.6; padding:0 6px; }
 .t-list { display:flex; flex-direction:column; gap:6px; min-width:min(360px, 92vw); }
 .t-item { position:relative; display:flex; justify-content:space-between; align-items:center; gap:14px; min-height:48px; padding:10px 16px; background:rgba(10,11,14,0.6); border:1px solid var(--line); color:var(--ink); font:inherit; letter-spacing:0.12em; text-transform:uppercase; cursor:pointer; transform:translateY(10px); opacity:0; transition:transform 200ms cubic-bezier(.2,.8,.2,1), opacity 200ms, border-color 120ms, background 120ms; }
 .t-screen.on .t-item { transform:none; opacity:1; }
@@ -158,6 +165,25 @@ export class Ui {
       const b = this.el("div", "t-body", s);
       b.innerHTML = spec.body;
     }
+    if (spec.tabs) {
+      const t = spec.tabs;
+      const bar = this.el("nav", "t-tabs", s);
+      this.el("span", "t-tabhint", bar).textContent = "Q";
+      t.labels.forEach((label, i) => {
+        const b = this.el("button", "t-tab", bar) as HTMLButtonElement;
+        b.textContent = label;
+        b.dataset.on = i === t.active ? "1" : "0";
+        b.dataset.tab = String(i);
+        b.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (i !== t.active) {
+            this.onNav("tick");
+            t.onTab(i);
+          }
+        });
+      });
+      this.el("span", "t-tabhint", bar).textContent = "E";
+    }
     const wrap = this.el("div", spec.layout === "grid" ? "t-grid" : spec.layout === "cards" ? "t-cards" : "t-list", s);
     spec.items.forEach((it, i) => {
       const b = this.el("button", "t-item", wrap) as HTMLButtonElement;
@@ -246,8 +272,22 @@ export class Ui {
     return false;
   }
 
+  /** Switch tab by ±1 (wraps). */
+  private tab(d: number): boolean {
+    const t = this.spec?.tabs;
+    if (!t) return false;
+    this.onNav("tick");
+    t.onTab((t.active + d + t.labels.length) % t.labels.length);
+    return true;
+  }
+
   private onKey = (e: KeyboardEvent): void => {
     if (!this.spec || this.spec.id === "title") return;
+    if ((e.code === "KeyQ" || e.code === "KeyE" || e.code === "Tab") && this.spec.tabs) {
+      e.preventDefault();
+      this.tab(e.code === "KeyQ" || (e.code === "Tab" && e.shiftKey) ? -1 : 1);
+      return;
+    }
     const grid = this.spec.layout === "grid" ? 5 : this.spec.layout === "cards" ? 1 : 0;
     if (e.code === "ArrowDown" || e.code === "KeyS") this.move(grid || 1);
     else if (e.code === "ArrowUp" || e.code === "KeyW") this.move(-(grid || 1));
@@ -290,6 +330,8 @@ export class Ui {
     const b = (i: number) => !!pad.buttons[i]?.pressed;
     const edge = (i: number) => b(i) && !this.padPrev[i];
     const grid = this.spec.layout === "grid" ? 5 : 1;
+    if (edge(4) && this.tab(-1)) return void (this.padPrev = pad.buttons.map((x) => x.pressed));
+    if (edge(5) && this.tab(1)) return void (this.padPrev = pad.buttons.map((x) => x.pressed));
     if (edge(13)) this.move(grid);
     if (edge(12)) this.move(-grid);
     if (edge(14) && !this.adjust(-1) && this.spec.layout !== "list") this.move(-1);

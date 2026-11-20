@@ -1118,16 +1118,23 @@ export class Game {
     });
   }
 
-  private showSettings(back: () => void): void {
+  /** Settings, in tabs (Q / E, LB / RB, or click): Audio · Display · Play · Controls · Data. */
+  private settingsTab = 0;
+  private showSettings(back: () => void, tab = this.settingsTab, focus = 0): void {
+    this.settingsTab = tab;
     const st = this.profile.settings;
     const pct = (v: number) => `${Math.round(v * 100)}%`;
+    // re-render in place after a change, keeping the tab and the focused row
+    const again = (id: string) => {
+      this.showSettings(back, tab, items.filter((i) => !i.disabled).findIndex((i) => i.id === id));
+    };
     const slider = (key: "masterVolume" | "musicVolume" | "sfxVolume" | "voiceVolume", label: string): MenuItem => ({
       id: key,
       label,
       detail: `<span class="adj">◂ ${pct(st.snapshot()[key])} ▸</span>`,
       adjust: (d) => {
         void st.patch({ [key]: Math.max(0, Math.min(1, Math.round((st.snapshot()[key] + d * 0.1) * 10) / 10)) } as Partial<TesseraSettings>);
-        this.showSettings(back);
+        again(key);
       }
     });
     const toggle = (key: "reducedMotion" | "reduceFlashes" | "subtitles" | "hintSigils" | "assistSpeed" | "vibration" | "highContrast" | "muted", label: string): MenuItem => ({
@@ -1136,41 +1143,41 @@ export class Game {
       detail: `<span class="adj">${st.snapshot()[key] ? "On" : "Off"}</span>`,
       adjust: () => {
         void st.patch({ [key]: !st.snapshot()[key] } as Partial<TesseraSettings>);
-        this.showSettings(back);
+        again(key);
       }
     });
     const s = st.snapshot();
+    const TABS = ["Audio", "Display", "Play", "Controls", "Data"];
+    const pages: MenuItem[][] = [
+      [slider("masterVolume", "Master"), slider("musicVolume", "Music"), slider("sfxVolume", "Effects"), slider("voiceVolume", "Voice"), toggle("subtitles", "Subtitles")],
+      [
+        toggle("reducedMotion", "Reduced motion"),
+        toggle("reduceFlashes", "Reduce flashes"),
+        { id: "shake", label: "Screen shake", detail: `<span class="adj">◂ ${pct(s.screenShake)} ▸</span>`, adjust: (d) => { void st.patch({ screenShake: Math.max(0, Math.min(1, s.screenShake + d * 0.25)) }); again("shake"); } },
+        toggle("highContrast", "High contrast"),
+        { id: "scale", label: "UI scale", detail: `<span class="adj">◂ ${s.uiScale}% ▸</span>`, adjust: (d) => { const o = [100, 125, 150] as const; const i = Math.max(0, Math.min(2, o.indexOf(s.uiScale) + d)); void st.patch({ uiScale: o[i] }); again("scale"); } }
+      ],
+      [toggle("hintSigils", "Hint sigils"), toggle("assistSpeed", "Assist speed"), toggle("vibration", "Vibration")],
+      [{ id: "controls", label: "Gamepad buttons", detail: `${padButtonName(s.padMark).split(" ")[0]} · ${padButtonName(s.padDetonate).split(" ")[0]} · ${padButtonName(s.padBlast).split(" ")[0]}` }],
+      [{ id: "reset", label: "Reset progress" }]
+    ];
+    const items: MenuItem[] = [...pages[tab]!, { id: "back", label: "Back" }];
     this.ui.show({
       id: "settings",
       title: "SETTINGS",
-      items: [
-        slider("masterVolume", "Master"),
-        slider("musicVolume", "Music"),
-        slider("sfxVolume", "Effects"),
-        slider("voiceVolume", "Voice"),
-        toggle("subtitles", "Subtitles"),
-        toggle("reducedMotion", "Reduced motion"),
-        toggle("reduceFlashes", "Reduce flashes"),
-        { id: "shake", label: "Screen shake", detail: `<span class="adj">◂ ${pct(s.screenShake)} ▸</span>`, adjust: (d) => { void st.patch({ screenShake: Math.max(0, Math.min(1, s.screenShake + d * 0.25)) }); this.showSettings(back); } },
-        toggle("hintSigils", "Hint sigils"),
-        toggle("assistSpeed", "Assist speed"),
-        toggle("highContrast", "High contrast"),
-        toggle("vibration", "Vibration"),
-        { id: "scale", label: "UI scale", detail: `<span class="adj">◂ ${s.uiScale}% ▸</span>`, adjust: (d) => { const o = [100, 125, 150] as const; const i = Math.max(0, Math.min(2, o.indexOf(s.uiScale) + d)); void st.patch({ uiScale: o[i] }); this.showSettings(back); } },
-        { id: "controls", label: "Controls", detail: "gamepad" },
-        { id: "reset", label: "Reset progress" },
-        { id: "back", label: "Back" }
-      ],
+      tabs: { labels: TABS, active: tab, onTab: (i) => this.showSettings(back, i) },
+      items,
       onPick: (id) => {
         if (id === "back") back();
-        else if (id === "controls") this.showControls(() => this.showSettings(back));
+        else if (id === "controls") this.showControls(() => this.showSettings(back, 3));
         else if (id === "reset")
           this.confirm("Erase all progress?", () => this.confirm("This cannot be undone. Erase?", () => {
             void this.profile.saves.delete().then(() => this.profile.load()).then(() => back());
-          }, () => this.showSettings(back)), () => this.showSettings(back));
+          }, () => this.showSettings(back, 4)), () => this.showSettings(back, 4));
       },
       onBack: back
     });
+    if (focus > 0) this.ui.setFocus(focus);
   }
 
   private showCredits(): void {
