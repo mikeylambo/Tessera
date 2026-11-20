@@ -33,6 +33,10 @@ const CSS = /* css */ `
 .t-screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; background:radial-gradient(ellipse at 50% 40%, rgba(5,6,8,0.55), rgba(5,6,8,0.92)); opacity:0; transition:opacity 200ms ease; padding:max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
 .t-screen.on { opacity:1; }
 .t-screen.clear { background:transparent; }
+.t-screen.bottom { justify-content:flex-end; padding-bottom:max(28px, env(safe-area-inset-bottom)); }
+.t-screen.bottom .t-body { margin:0 0 12px; }
+.t-screen.bottom .t-list { flex-direction:row; justify-content:center; min-width:0; gap:8px; }
+.t-screen.bottom .t-item { min-width:112px; justify-content:center; background:rgba(10,11,14,0.45); }
 .t-title { font-family:"Cinzel", "Trajan Pro", Georgia, serif; font-weight:400; letter-spacing:0.42em; text-indent:0.42em; font-size:calc(26px * var(--ui-scale)); color:var(--ink); margin:0 0 6px; text-shadow:0 0 18px rgba(255,179,71,0.18); text-align:center; }
 .t-sub { color:var(--dim); letter-spacing:0.2em; font-size:calc(11px * var(--ui-scale)); margin:0 0 26px; text-transform:uppercase; text-align:center; }
 .t-body { max-width:520px; color:var(--ink); line-height:1.7; text-align:center; margin:0 0 22px; opacity:0.9; }

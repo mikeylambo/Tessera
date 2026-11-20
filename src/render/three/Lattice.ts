@@ -134,6 +134,10 @@ export class OverlayView {
   private causeMesh: THREE.Mesh | null = null;
   /** Hint sigils (GDD §22): useful cells from the stage's solver witness, shown after repeated failures. */
   hints: Array<{ frame: number; x: number; z: number }> = [];
+  /** Frames ahead a hint sigil appears (in-stage hints: 150; Watch a solution: ~30, i.e. the move about to come). */
+  hintLead = 150;
+  /** Watch a solution: sigils are brighter and always on (the teaching aid, not a setting). */
+  hintBold = false;
   private hintMesh: THREE.Mesh | null = null;
   ghostsEnabled = true;
 
@@ -255,11 +259,11 @@ export class OverlayView {
       this.hintMesh.renderOrder = 3;
       this.group.add(this.hintMesh);
     }
-    const hint = this.ghostsEnabled ? this.hints.find((h) => h.frame >= w.frame - 20 && h.frame - w.frame <= 150 && !w.marks.has(h)) : undefined;
+    const hint = this.ghostsEnabled || this.hintBold ? this.hints.find((h) => h.frame >= w.frame - (this.hintBold ? 0 : 20) && h.frame - w.frame <= this.hintLead && !w.marks.has(h)) : undefined;
     this.hintMesh.visible = !!hint;
     if (hint) {
       this.hintMesh.position.set(wx(hint.x), tileTop(hint.x, hint.z) + 0.03, wz(hint.z));
-      (this.hintMesh.material as THREE.MeshBasicMaterial).opacity = 0.16 + 0.18 * (0.5 + 0.5 * Math.sin(this.t * 3));
+      (this.hintMesh.material as THREE.MeshBasicMaterial).opacity = this.hintBold ? 0.45 + 0.25 * (0.5 + 0.5 * Math.sin(this.t * 6)) : 0.16 + 0.18 * (0.5 + 0.5 * Math.sin(this.t * 3));
     }
 
     // Chamber Glyph sigils (Blast centres on the void lattice) + armed 3×3 preview

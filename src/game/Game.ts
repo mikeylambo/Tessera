@@ -24,6 +24,9 @@ export type Phase = "boot" | "title" | "menu" | "playing" | "paused" | "runes" |
 /** Solver witnesses, lazily loaded only when hint sigils are needed. */
 const WITNESSES = import.meta.glob("../../tests/witness/*.json");
 
+/** Watch a solution (DECISIONS #89): half speed by default, each mark previewed ~0.5 s ahead, a beat after each kill. */
+const WATCH = { speed: 0.5, leadFrames: 30, holdAfterKill: 0.45 };
+
 const LINES = { tessera: "Tessera.", beautiful: "Beautiful.", holdOn: "Hold on.", purified: "Purified.", again: "Again.", noPath: "No path remains." } as const;
 
 /**
@@ -81,7 +84,7 @@ export class Game {
   private last = 0;
   private alpha = 0;
   private config: WorldConfig | null = null;
-  private replay: { world: World; player: InputPlayer; end: number; speed: number; acc: number; cause: string; link?: RunRow; watch?: boolean } | null = null;
+  private replay: { world: World; player: InputPlayer; end: number; speed: number; acc: number; cause: string; link?: RunRow; watch?: boolean; hold?: number } | null = null;
   private pendingPick = -1;
   private formationsSeen = 0;
   private ranked = false;
@@ -644,6 +647,12 @@ export class Game {
     const now = performance.now();
     const real = this.replayLast ? (now - this.replayLast) / 1000 : 0;
     this.replayLast = now;
+    // Watch a solution: a short beat after each Detonate so the new ground can be read
+    if (r.hold && r.hold > 0) {
+      r.hold -= real;
+      this.alpha = r.acc;
+      return;
+    }
     r.acc += real * 60 * r.speed;
     while (r.acc >= 1) {
       r.acc -= 1;
@@ -654,6 +663,11 @@ export class Game {
       r.world.step(r.player.next(r.world.frame));
       const ev = r.world.events.drain().filter((e) => e.t !== "Announce");
       this.view.handle(ev);
+      if (r.watch && ev.some((e) => e.t === "Kill")) {
+        r.hold = WATCH.holdAfterKill;
+        r.acc = 0;
+        break;
+      }
     }
     this.alpha = r.acc;
     this.view.feel.extraUp = r.link || r.watch ? 0 : 8;
@@ -661,6 +675,11 @@ export class Game {
 
   skipReplay(): void {
     if (this.phase !== "replay") return;
+    if (this.replay?.watch) {
+      this.view.overlay.hints = [];
+      this.view.overlay.hintLead = 150;
+      this.view.overlay.hintBold = false;
+    }
     const link = this.replay?.link;
     if (link) {
       this.replaySkip?.();
@@ -690,12 +709,39 @@ export class Game {
     const wit = ((await loader()) as { default: { entries: Array<[number, number, number, number, number, number, number, number]>; frames: number } }).default;
     const rw = new World({ mode: "hundred", seed: `stage-${id}`, stage });
     this.view.attach(rw);
-    this.replay = { world: rw, player: new InputPlayer(wit.entries), end: wit.frames + 90, speed: 1, acc: 0, cause: "", watch: true };
+    // every mark appears as a sigil just before it lands (the move you're about to see)
+    this.view.overlay.hints = wit.entries.filter((e) => e[3] >= 0).map((e) => ({ frame: e[0], x: e[3], z: e[4] }));
+    this.view.overlay.hintLead = WATCH.leadFrames;
+    this.view.overlay.hintBold = true;
+    this.replay = { world: rw, player: new InputPlayer(wit.entries), end: wit.frames + 90, speed: WATCH.speed, acc: 0, cause: "", watch: true };
     this.phase = "replay";
     this.replayLast = 0;
     this.ui.showHud(false, false);
-    this.ui.show({ id: "watch", className: "clear", body: `<div class="why">A solution</div>`, items: [{ id: "skip", label: "Back" }], onPick: () => this.skipReplay(), onBack: () => this.skipReplay() });
+    this.paintWatchUi();
   }
+
+  private paintWatchUi(): void {
+    const r = this.replay;
+    if (!r?.watch) return;
+    this.ui.show({
+      id: "watch",
+      className: "clear bottom",
+      body: `<div class="why">A solution · ${r.speed === 1 ? "1×" : "½×"}</div>`,
+      items: [
+        { id: "speed", label: r.speed === 1 ? "½×" : "1×" },
+        { id: "skip", label: "Back" }
+      ],
+      onPick: (k) => {
+        if (k === "speed" && this.replay) {
+          this.replay.speed = this.replay.speed === 1 ? WATCH.speed : 1;
+          this.paintWatchUi();
+          this.ui.setFocus(0);
+        } else this.skipReplay();
+      },
+      onBack: () => this.skipReplay()
+    });
+  }
+
   watching(): boolean {
     return !!this.replay?.watch;
   }
@@ -744,7 +790,7 @@ export class Game {
     const idx = dailyIndex(row.day || row.seed.replace("DAILY-", ""));
     this.ui.show({
       id: "replay-link",
-      className: "clear",
+      className: "clear bottom",
       body: `<div class="why">${row.name} · Daily #${idx}</div>`,
       items: [
         { id: "speed", label: r.speed === 1 ? "2×" : "1×" },
