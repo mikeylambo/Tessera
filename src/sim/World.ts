@@ -36,7 +36,9 @@ export interface WorldConfig {
 export type Outcome =
   | { kind: "fall"; cause: FallCause; frame: number; x: number; z: number }
   | { kind: "clear"; frame: number }
-  | { kind: "fail"; cause: "escape"; frame: number };
+  | { kind: "fail"; cause: "escape"; frame: number }
+  /** The objective can no longer be met (DECISIONS #83): ended within one tick, kindly. */
+  | { kind: "fail"; cause: "noPath"; frame: number; x: number; z: number };
 
 interface PendingBlast {
   x: number;
@@ -230,6 +232,71 @@ export class World {
     this.updateLastStand();
     this.checkFooting();
     this.checkObjective();
+    if (this.f === 0) this.checkWinnable();
+  }
+
+  /**
+   * "Still winnable?" (DECISIONS #83), evaluated once per tick. Over-approximates the future so it never fails a
+   * stage that could still be won: every cell a remaining Standard (live or scripted) could still roll through counts
+   * as ground it could become. exit → a path to the exit row exists over current ground ∪ those cells;
+   * clear → a Standard escaping already fails; survive → always winnable until you fall.
+   */
+  winnable(): boolean {
+    const s = this.config.stage;
+    if (this.config.mode !== "hundred" || !s || s.objective.type !== "exit") return true;
+    const exitZ = s.objective.z;
+    const p = this.player;
+    if (!p.alive) return true; // falling is its own outcome
+    const cells = new Set<number>();
+    const K = (x: number, z: number) => (z + 64) * 8 + x;
+    let maxZ = exitZ;
+    const lane = (x: number, z: number) => {
+      maxZ = Math.max(maxZ, z);
+      for (let zz = z; zz >= -2; zz--) if (!this.grid.isScar(x, zz)) cells.add(K(x, zz));
+    };
+    const killable = (t: CubeType) => isStandard(t) || !!s.lastStand;
+    for (const c of this.cubes.alive()) if (killable(c.type)) lane(c.x, c.z);
+    for (let i = this.stageWaveIdx; i < s.waves.length; i++) {
+      const wv = s.waves[i]!;
+      wv.rows.forEach((row, r) => [...row].forEach((ch, x) => ch !== "." && (ch !== "F" || s.lastStand) && lane(x, wv.z + r)));
+    }
+    const sf = s.skyfall ?? [];
+    for (let i = this.stageSkyIdx; i < sf.length; i++) if (killable(sf[i]!.type ?? "stone")) lane(sf[i]!.x, sf[i]!.z);
+    for (const t of this.grid.list()) cells.add(K(t.x, t.z));
+    // BFS from the player over real + potential ground
+    const seen = new Set<number>([K(p.x, p.z)]);
+    const q: Array<[number, number]> = [[p.x, p.z]];
+    for (let i = 0; i < q.length; i++) {
+      const [x, z] = q[i]!;
+      if (z >= exitZ) return true;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = x + dx;
+        const nz = z + dz;
+        if (nx < 0 || nx > 6 || nz < -2 || nz > maxZ + 1) continue;
+        const k = K(nx, nz);
+        if (seen.has(k) || !cells.has(k)) continue;
+        seen.add(k);
+        q.push([nx, nz]);
+      }
+    }
+    return false;
+  }
+
+  /** Standards still to come or alive (clear objective HUD). Read-only. */
+  standardsLeft(): number {
+    const s = this.config.stage;
+    let n = this.cubes.alive().filter((c) => isStandard(c.type)).length;
+    if (!s) return n;
+    for (let i = this.stageWaveIdx; i < s.waves.length; i++) for (const row of s.waves[i]!.rows) for (const ch of row) if (ch !== "." && ch !== "F") n++;
+    return n;
+  }
+
+  private checkWinnable(): void {
+    if (this.outcome || this.noFail || this.winnable()) return;
+    // highlight where the last route closed: the latest escape/crumble cause, else where the player stands
+    const c = this.lastCause ?? { x: this.player.x, z: this.player.z };
+    this.outcome = { kind: "fail", cause: "noPath", frame: this.frame, x: c.x, z: c.z };
+    this.events.push({ t: "Announce", line: "noPath" });
   }
 
   private moveCtx = { canEnter: (x: number, z: number): boolean => this.canEnter(x, z) };

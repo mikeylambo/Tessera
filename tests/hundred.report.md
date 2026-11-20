@@ -15,8 +15,8 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 6 | 1 | Islands | exit z6 | Stone | 7 | 15.8 s |
 | 7 | 1 | Reach | exit z7 | Stone | 8 | 18.2 s |
 | 8 | 1 | Pressure | survive 28t | Crumble 6 | 13 | 33.6 s |
-| 9 | 1 | Lanes | exit z9 | Crumble 7 | 13 | 24.2 s |
-| 10 | 1 | Crossing | exit z11 | Crumble 7 | 16 | 32.4 s |
+| 9 | 1 | Lanes | exit z8 | Crumble 7 | 11 | 23.4 s |
+| 10 | 1 | Crossing | exit z10 | Crumble 7 | 15 | 32.0 s |
 | 11 | 2 | Do Not Touch | survive 18t | Forbidden | 0 | 21.6 s |
 | 12 | 2 | Let It Pass | exit z6 | Forbidden | 5 | 16.4 s |
 | 13 | 2 | Glyph | clear | Advantage | 1 | 16.7 s |
@@ -88,3 +88,30 @@ Par = fewest marks among solutions found (best found, not a proof of optimality)
 | 79 | 5 | Restraint Absolute | clear | Forbidden | 7 | 26.3 s |
 | 80 | 5 | Mastery | exit z12 | Forbidden, Advantage, Glass, Iron, Phase, Skyfall, Crumble 7 | 14 | 30.6 s |
 | 81 | 6 | The Turn | exit z12 | Turn | 14 | 29.8 s |
+
+## Human difficulty audit (stages 1–20, 50 seeds each)
+
+"human" bot (`src/dev/bot.ts`): slower reaction (10–22 f between actions), ~1-tick misjudgment on 20% of marks (a miss), no lookahead beyond the nearest formation. Target: ≥ 80% clears through stage 10 (DECISIONS #86).
+
+| Stage | Name | Objective | Clear rate | Failures |
+|---|---|---|---|---|
+| 1 | First Light | clear | 100% | — |
+| 2 | Over the Void | exit | 100% | — |
+| 3 | The Fall Behind | exit | 100% | — |
+| 4 | Two Marks | clear | 100% | — |
+| 5 | Choose Where | exit | 100% | — |
+| 6 | Islands | exit | 98% | fail:noPath 1 |
+| 7 | Reach | exit | 92% | fail:noPath 4 |
+| 8 | Pressure | survive | 100% | — |
+| 9 | Lanes | exit | 100% | — |
+| 10 | Crossing | exit | 86% | fail:noPath 7 |
+| 11 | Do Not Touch | survive | 100% | — |
+| 12 | Let It Pass | exit | 14% | fail:noPath 43 |
+| 13 | Glyph | clear | 100% | — |
+| 14 | Breath | clear | 100% | — |
+| 15 | Scar | exit | 16% | fail:noPath 42 |
+| 16 | Narrow Gate | exit | 22% | fail:noPath 39 |
+| 17 | Restraint | clear | 100% | — |
+| 18 | Glyph Bank | clear | 100% | — |
+| 19 | Ledge | survive | 100% | — |
+| 20 | Hold the Line | clear | 98% | fail:escape 1 |

@@ -342,6 +342,67 @@ try {
     }
   }
 
+  // ── 3f: no soft-locks — stage 9 with every kill missed ends on the failure screen in < 2 s (DECISIONS #83) ──
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    const errors = watch(page);
+    await page.goto(`${BASE}?stage=9`);
+    await waitFor(page, () => window.__GAME?.state().phase === "playing");
+    // forced miss: the witness with one bridge mark aimed a row short; pick the first miss that closes the route
+    const { readFileSync } = await import("node:fs");
+    const wit = JSON.parse(readFileSync("tests/witness/009.json", "utf8"));
+    const closeAt = await page.evaluate((entries) => {
+      const g = window.__GAME;
+      g.manual(true);
+      const w0 = g.game.world;
+      const nMarks = entries.filter((e) => e[3] >= 0).length;
+      for (let k = 0; k < nMarks; k++) {
+        let i = -1;
+        const log = entries.map((e) => (e[3] >= 0 && ++i === k ? [e[0], e[1], e[2], e[3], Math.max(0, e[4] - 1), e[5], e[6], e[7]] : e));
+        const copy = new w0.constructor(w0.config);
+        const byFrame = new Map(log.map((e) => [e[0], e]));
+        let held = 0;
+        while (!copy.ended && copy.frame < 60 * 60 * 4) {
+          const e = byFrame.get(copy.frame);
+          if (e) held = e[1];
+          copy.step(e ? { held, press: e[2], mark: e[3] >= 0 ? { x: e[3], z: e[4] } : null, detonate: e[5] === 1, blast: e[6] === 1, pick: e[7] } : { held, press: 0, mark: null, detonate: false, blast: false, pick: -1 });
+          copy.events.drain();
+          if (copy.outcome) break;
+        }
+        if (copy.outcome?.cause === "noPath") {
+          g.loadStage(9); // restart at frame 0 under manual control, then drive it from the log
+          g.script(log);
+          return { k, frame: copy.frame, outcome: copy.outcome };
+        }
+      }
+      return { k: -1, frame: -1, outcome: null };
+    }, wit.entries);
+    check(closeAt.outcome?.cause === "noPath", `stage 9, forced miss #${closeAt.k} ends with "No path remains" (frame ${closeAt.frame}, ${JSON.stringify(closeAt.outcome)})`);
+    // step the live run to 30 frames before, then let it run in real time and time the failure screen
+    // the route closes at most one tick before it is detected. Latency = sim frames from that moment to the failure
+    // screen (the sim is fixed 60 Hz; software GL here can't hold real time) + the measured wall cost of the switch.
+    const lat = await page.evaluate((f) => {
+      const g = window.__GAME;
+      const closed = f - g.state().tickLen;
+      g.stepFrames(Math.max(0, closed - g.state().frame));
+      let n = 0;
+      let wall = 0;
+      while (g.state().screen !== "replay" && n < 60 * 10) {
+        const t = performance.now();
+        g.stepFrames(1);
+        wall += performance.now() - t;
+        n++;
+      }
+      return { frames: n, wall };
+    }, closeAt.frame);
+    const ms = (lat.frames / 60) * 1000 + lat.wall;
+    const why = await page.evaluate(() => document.querySelector(".why")?.textContent ?? "");
+    check(ms < 2000 && /No path remains/.test(why), `failure screen ${Math.round(ms)} ms after the last route closed (${lat.frames} f @ 60 Hz + ${Math.round(lat.wall)} ms switch; "${why}")`);
+    await page.screenshot({ path: `${OUT}/15-no-path.png` });
+    check(errors.length === 0, `zero console errors in no-path failure (${errors.slice(0, 3).join(" | ")})`);
+    await page.close();
+  }
+
   // ── 3b: shell tuning panel (dev only) ─────────────────────────────────
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });

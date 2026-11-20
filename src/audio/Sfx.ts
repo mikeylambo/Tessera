@@ -214,7 +214,7 @@ export class Sfx {
   /** Placeholder announcer timbre (calm, warm) until recorded lines arrive via the manifest. */
   private announce(line: AnnouncerLine, at: number): void {
     const e = this.e;
-    const notes: Record<AnnouncerLine, number[]> = { tessera: [62, 69], beautiful: [69, 74, 78], holdOn: [62, 60], purified: [66, 74], again: [69, 62] };
+    const notes: Record<AnnouncerLine, number[]> = { tessera: [62, 69], beautiful: [69, 74, 78], holdOn: [62, 60], purified: [66, 74], again: [69, 62], noPath: [62, 57, 50] };
     notes[line].forEach((m, i) => e.tone(e.voice, { type: "sine", freq: midiFreq(m), at: at + 0.15 + i * 0.22, attack: 0.08, decay: 0.9, gain: 0.07, send: 0.8 }));
     e.duck(8, 0.9);
   }

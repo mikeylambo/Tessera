@@ -53,7 +53,7 @@ export type SimEvent =
 
 export type BeaconReward = "glyph" | "shard" | "score" | "crumble";
 export type FallCause = "shoved" | "crumble" | "glass" | "scar" | "void";
-export type AnnouncerLine = "tessera" | "beautiful" | "holdOn" | "purified" | "again";
+export type AnnouncerLine = "tessera" | "beautiful" | "holdOn" | "purified" | "again" | "noPath";
 
 export class EventQueue {
   private items: SimEvent[] = [];

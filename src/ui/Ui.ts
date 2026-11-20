@@ -53,6 +53,7 @@ const CSS = /* css */ `
 @keyframes t-breathe { 0%,100% { opacity:0.35; } 50% { opacity:0.9; } }
 .t-hud { position:absolute; inset:0; pointer-events:none; }
 .t-sector { position:absolute; left:max(16px, env(safe-area-inset-left)); top:max(14px, env(safe-area-inset-top)); color:var(--dim); letter-spacing:0.18em; font-size:calc(11px * var(--ui-scale)); }
+.t-objective { position:absolute; left:max(16px, env(safe-area-inset-left)); top:calc(max(14px, env(safe-area-inset-top)) + 20px * var(--ui-scale)); color:rgba(255,214,150,0.78); letter-spacing:0.18em; font-size:calc(11px * var(--ui-scale)); }
 .t-score { position:absolute; left:50%; top:max(10px, env(safe-area-inset-top)); transform:translateX(-50%); font-size:calc(22px * var(--ui-scale)); letter-spacing:0.3em; color:rgba(233,227,216,0.28); transition:color 400ms, text-shadow 400ms; }
 .t-score.pulse { color:rgba(255,200,130,0.85); text-shadow:0 0 18px rgba(255,179,71,0.5); transition:none; }
 .t-runes { position:absolute; left:max(16px, env(safe-area-inset-left)); bottom:max(14px, env(safe-area-inset-bottom)); display:flex; gap:6px; }
@@ -94,6 +95,7 @@ export class Ui {
   private focus = 0;
   private openedAt = 0;
   readonly hud: HTMLElement;
+  private objectiveEl!: HTMLElement;
   private sectorEl: HTMLElement;
   private scoreEl: HTMLElement;
   private runesEl: HTMLElement;
@@ -117,6 +119,7 @@ export class Ui {
     document.head.appendChild(style);
     this.hud = this.el("div", "t-hud");
     this.sectorEl = this.el("div", "t-sector", this.hud);
+    this.objectiveEl = this.el("div", "t-objective", this.hud);
     this.scoreEl = this.el("div", "t-score", this.hud);
     this.runesEl = this.el("div", "t-runes", this.hud);
     this.subEl = this.el("div", "t-sub-line", this.hud);
@@ -305,8 +308,10 @@ export class Ui {
     this.touch.classList.toggle("on", on && touch);
   }
 
-  setHud(p: { sector: string; score: number; runes: string[]; glyphs: number }): void {
+  setHud(p: { sector: string; score: number; runes: string[]; glyphs: number; objective?: string }): void {
     this.sectorEl.textContent = p.sector;
+    const o = p.objective ?? "";
+    if (this.objectiveEl.textContent !== o) this.objectiveEl.textContent = o;
     const s = p.score.toLocaleString("en-US");
     if (this.scoreEl.textContent !== s) {
       this.scoreEl.textContent = s;

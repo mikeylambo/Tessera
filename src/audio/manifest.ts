@@ -40,7 +40,8 @@ export const AUDIO_MANIFEST: Readonly<Record<string, string>> = {
   "voice.beautiful": "synth:voiceBeautiful",
   "voice.holdOn": "synth:voiceHoldOn",
   "voice.purified": "synth:voicePurified",
-  "voice.again": "synth:voiceAgain"
+  "voice.again": "synth:voiceAgain",
+  "voice.noPath": "synth:voiceNoPath"
 };
 
 export const ASSET_MANIFEST: Readonly<Record<string, string>> = {

@@ -25,3 +25,5 @@ Every change to `src/data/tuning.ts` or authored pacing data is logged here with
 | Desktop 1280×720 | 0.1 / 0.5 ms (≤ 1 ms ✓) | 0.8 ms | 16 MB |
 | Pixel 7 emulation, 4× CPU throttle | 0.1 / 3.4 ms (p99 over budget under 4× throttle) | 2.9 ms | 16 MB |
 Shortfall, honestly: GPU frame time cannot be measured in this container (SwiftShader software GL); its p99 frames of 2–3 s are shader-compile stalls in software GL, not representative. A device check on real hardware (MacBook Pro 5300M, iPhone 13 / Pixel 7) is still required for the 8 / 14 ms frame-time targets — the new post cost is one extra full-screen pass (Tessera post) + grain and a backdrop sphere + one plane.
+| 10 | 2026-11-20 | stage 9 exit / par | z9 / 13 → z8 / 11 | human-bot clear rate 76% → 100% (50 seeds); Crumble 7 → 9 alone: 76% (no effect) | Claude |
+| 11 | 2026-11-20 | stage 10 exit / par | z11 / 16 → z10 / 15 | human-bot clear rate 24% → 86% (50 seeds); Crumble 7 → 9 alone: 24% | Claude |

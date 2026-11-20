@@ -24,7 +24,7 @@ export type Phase = "boot" | "title" | "menu" | "playing" | "paused" | "runes" |
 /** Solver witnesses, lazily loaded only when hint sigils are needed. */
 const WITNESSES = import.meta.glob("../../tests/witness/*.json");
 
-const LINES = { tessera: "Tessera.", beautiful: "Beautiful.", holdOn: "Hold on.", purified: "Purified.", again: "Again." } as const;
+const LINES = { tessera: "Tessera.", beautiful: "Beautiful.", holdOn: "Hold on.", purified: "Purified.", again: "Again.", noPath: "No path remains." } as const;
 
 /**
  * Mobile vibration only; gamepad rumble comes from the Feel Kit impact bundles (weak/strong 0 here).
@@ -81,7 +81,7 @@ export class Game {
   private last = 0;
   private alpha = 0;
   private config: WorldConfig | null = null;
-  private replay: { world: World; player: InputPlayer; end: number; speed: number; acc: number; cause: string; link?: RunRow } | null = null;
+  private replay: { world: World; player: InputPlayer; end: number; speed: number; acc: number; cause: string; link?: RunRow; watch?: boolean } | null = null;
   private pendingPick = -1;
   private formationsSeen = 0;
   private ranked = false;
@@ -95,6 +95,8 @@ export class Game {
   manual = false;
   /** Dev/evidence: the realtime loop stops rendering; `__GAME.advance()` renders instead. */
   viewFrozen = false;
+  /** Dev/E2E: drive the live run from an input log (same path as devices). */
+  scripted: InputPlayer | null = null;
   get hasBot(): boolean {
     return this.bot !== null;
   }
@@ -249,7 +251,7 @@ export class Game {
   stepOnce(): void {
     const w = this.world;
     if (!w) return;
-    let input: FrameInput = this.bot ? this.bot.think(w) : this.devices.frame();
+    let input: FrameInput = this.scripted ? this.scripted.next(w.frame) : this.bot ? this.bot.think(w) : this.devices.frame();
     if (this.pendingPick >= 0) {
       input = { ...input, pick: this.pendingPick };
       this.pendingPick = -1;
@@ -325,12 +327,24 @@ export class Game {
     const mode = w.config.mode;
     const depth = Math.max(0, w.depthRow);
     const sector = mode === "hundred" ? `${String(w.config.stage?.id ?? 0).padStart(3, "0")} · ${w.config.stage?.name.toUpperCase() ?? ""}` : `SECTOR ${w.sector} · DEPTH ${depth}`;
-    this.ui.setHud({ sector, score: w.score.total, runes: w.run.runes.map((r) => runeById(r).glyph), glyphs: w.run.glyphs.length });
+    this.ui.setHud({ sector, score: w.score.total, runes: w.run.runes.map((r) => runeById(r).glyph), glyphs: w.run.glyphs.length, objective: this.objectiveLine(w) });
     this.ui.chamber(w.chamber ? { marksLeft: w.chamber.def.marks - w.marks.count, armed: w.chamber.armed } : null);
     if (this.flags.playtest) {
       const fair = w.lastFairness ? `${w.lastFairness.id} ${w.lastFairness.reason} ×${w.lastFairness.attempts}` : "-";
       this.ui.overlay(`fps ${this.fps.value.toFixed(0)} (worst ${this.fps.worst.toFixed(1)} ms)\nframe ${w.frame} tick ${w.tick}.${w.f}/${w.tickLen}\ncubes ${w.cubes.count} ground ${w.connected().length}\ncrumble ${w.crumble.counter}/${w.crumbleInterval()}\nfair ${fair}\nhash ${w.stateHash().slice(0, 8)}`);
     }
+  }
+
+  /** The stage objective, always on screen in the Hundred (DECISIONS #84). */
+  private objectiveLine(w: World): string {
+    const o = w.config.mode === "hundred" ? w.config.stage?.objective : undefined;
+    if (!o || w.outcome) return "";
+    if (o.type === "exit") {
+      const rows = Math.max(0, o.z - w.player.z);
+      return rows ? `▲ REACH THE LIGHT · ${rows} ${rows === 1 ? "ROW" : "ROWS"}` : "▲ REACH THE LIGHT";
+    }
+    if (o.type === "clear") return `STANDARDS LEFT · ${w.standardsLeft()}`;
+    return `HOLD · ${Math.max(0, o.ticks - w.tick)}`;
   }
 
   private sampleFps(dt: number): void {
@@ -354,6 +368,7 @@ export class Game {
     this.world = new World(config);
     this.view.attach(this.world);
     this.armGhost(config);
+    this.scripted = null;
     this.recorder.reset();
     this.trail = new Map(this.world.grid.list().map((t) => [t.z * 8 + t.x, { x: t.x, z: t.z, start: true }]));
     this.formationsSeen = 0;
@@ -575,7 +590,7 @@ export class Game {
     this.view.feel.extraUp = 0;
     this.replay = { world: rw, player, end: end + 12, speed: 0.4, acc: 0, cause: this.describeCause(w) };
     const o = w.outcome;
-    this.view.overlay.cause = o?.kind === "fall" ? { x: o.x, z: o.z } : w.lastCause ? { x: w.lastCause.x, z: w.lastCause.z } : null;
+    this.view.overlay.cause = o?.kind === "fall" || (o?.kind === "fail" && o.cause === "noPath") ? { x: o.x, z: o.z } : w.lastCause ? { x: w.lastCause.x, z: w.lastCause.z } : null;
     this.lastReplayCause = this.view.overlay.cause;
     this.phase = "replay";
     this.replayLast = 0;
@@ -605,6 +620,7 @@ export class Game {
   private describeCause(w: World): string {
     const o = w.outcome;
     if (!o) return "";
+    if (o.kind === "fail" && o.cause === "noPath") return "No path remains";
     if (o.kind === "fail") return "A pale cube slipped past";
     if (o.kind !== "fall") return "";
     switch (o.cause) {
@@ -640,7 +656,7 @@ export class Game {
       this.view.handle(ev);
     }
     this.alpha = r.acc;
-    this.view.feel.extraUp = r.link ? 0 : 8;
+    this.view.feel.extraUp = r.link || r.watch ? 0 : 8;
   }
 
   skipReplay(): void {
@@ -661,6 +677,27 @@ export class Game {
     this.view.feel.extraUp = 0;
     if (this.world) this.view.attach(this.world);
     this.showResults();
+  }
+
+  /**
+   * "Watch a solution" (DECISIONS #85): the stage's solver witness plays in the real sim. Watching never counts as a
+   * clear — it runs in a separate World and returns to the same failed results.
+   */
+  async watchSolution(id: number): Promise<void> {
+    const loader = WITNESSES[`../../tests/witness/${String(id).padStart(3, "0")}.json`];
+    const stage = stageById(id);
+    if (!loader || !stage) return;
+    const wit = ((await loader()) as { default: { entries: Array<[number, number, number, number, number, number, number, number]>; frames: number } }).default;
+    const rw = new World({ mode: "hundred", seed: `stage-${id}`, stage });
+    this.view.attach(rw);
+    this.replay = { world: rw, player: new InputPlayer(wit.entries), end: wit.frames + 90, speed: 1, acc: 0, cause: "", watch: true };
+    this.phase = "replay";
+    this.replayLast = 0;
+    this.ui.showHud(false, false);
+    this.ui.show({ id: "watch", className: "clear", body: `<div class="why">A solution</div>`, items: [{ id: "skip", label: "Back" }], onPick: () => this.skipReplay(), onBack: () => this.skipReplay() });
+  }
+  watching(): boolean {
+    return !!this.replay?.watch;
   }
 
   // ───────────────────────────────── replay links (brief §3.2) ─────────────────────────────────
@@ -1189,12 +1226,14 @@ export class Game {
         items: [
           ...(cleared && next ? [{ id: "next", label: "Next" }] : []),
           { id: "retry", label: "Retry" },
+          ...(!cleared && (this.failures.get(s.id) ?? 0) >= TUNING.onboarding.hintAfterFailures ? [{ id: "watch", label: "Watch a solution" }] : []),
           ...(cleared && !next && this.profile.actOneCleared ? [{ id: "endless", label: "Endless" }] : []),
           { id: "stages", label: "Stages" }
         ],
         onPick: (id) => {
           if (id === "next" && next) this.startStage(next.id);
           else if (id === "retry") this.retry();
+          else if (id === "watch") void this.watchSolution(s.id);
           else if (id === "endless") this.startEndless();
           else this.showHundred();
         },

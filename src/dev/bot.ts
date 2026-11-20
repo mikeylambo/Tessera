@@ -4,7 +4,7 @@ import { isStandard, NO_INPUT, type Cell, type Dir, type FrameInput } from "../s
 import { DeterministicRng } from "@slu/web-shell";
 import { chamberPlan } from "../data/chambers";
 
-export type BotLevel = "novice" | "competent" | "expert";
+export type BotLevel = "novice" | "competent" | "expert" | "human";
 
 /**
  * Verification bots (GDD §14). They produce FrameInput through the same input layer and timings as humans.
@@ -12,11 +12,16 @@ export type BotLevel = "novice" | "competent" | "expert";
  *  competent — greedy: kill the Standard whose death builds ground nearest the front; never marks Forbidden;
  *              steps toward the forward-most safe tile
  *  expert    — competent + Beacon seeking + Blast timing
+ *  human     — competent judgement with human limits (difficulty audit, DECISIONS #86): slower reaction
+ *              (10–22 f between actions), ~1-tick misjudgment (20% of marks land on the cell the cube will reach
+ *              next tick and are detonated at once → a miss), no lookahead beyond the nearest formation
  */
 export class Bot {
   private rng: DeterministicRng;
   private cooldown = 0;
   private plan: Cell | null = null;
+  /** Human: a misjudged mark is detonated immediately (they believe it's loaded). */
+  private rushed = false;
 
   constructor(readonly level: BotLevel, seed = 7) {
     this.rng = new DeterministicRng(seed);
@@ -46,6 +51,11 @@ export class Bot {
 
     // 1. Detonate when every mark sits on a live Standard
     const marks = w.marks.list();
+    if (this.rushed && marks.length && this.cooldown === 0 && w.actionLock === 0) {
+      this.rushed = false;
+      this.cooldown = 12;
+      return { ...input, detonate: true };
+    }
     if (marks.length && this.cooldown === 0 && w.actionLock === 0) {
       const allLoaded = marks.every((m) => {
         const c = w.cubeAt(m);
@@ -75,7 +85,7 @@ export class Bot {
           return { ...input, mark: dead };
         }
       } else if (allLoaded || marks.length >= w.maxMarks) {
-        this.cooldown = 4;
+        this.cooldown = this.level === "human" ? 12 : 4;
         return { ...input, detonate: true };
       }
     }
@@ -100,9 +110,11 @@ export class Bot {
       const rear = w.grid.rearZ() ?? 0;
       let best: Cell | null = null;
       let bestScore = -Infinity;
+      const nearestZ = standards.reduce((m, c) => Math.min(m, c.z), Infinity);
       for (const c of standards) {
         const l = w.logical(c)!;
         if (w.marks.has(l) || !w.inReach(l)) continue;
+        if (this.level === "human" && c.z > nearestZ + 3) continue; // no lookahead beyond the nearest formation
         const rolling = Cubes.rolling(c, w.f, w.tickLen);
         if (rolling && l.z === c.z && w.f > w.tickLen - 16) continue; // about to leave this cell
         const isVoid = !w.grid.has(l.x, l.z) && !w.grid.isScar(l.x, l.z);
@@ -123,6 +135,18 @@ export class Bot {
           const miss = { x: Math.max(0, Math.min(6, best.x + this.rng.int(-1, 1))), z: best.z + this.rng.int(-1, 1) };
           this.cooldown = 10 + this.rng.int(0, 20);
           return { ...input, mark: w.inReach(miss) ? miss : best };
+        }
+        if (this.level === "human") {
+          this.cooldown = 10 + this.rng.int(0, 12);
+          if (this.rng.chance(0.2)) {
+            const early = { x: best.x, z: best.z - 1 }; // where it will be next tick: detonated now, it misses
+            if (w.inReach(early) && !w.marks.has(early)) {
+              this.rushed = true;
+              this.cooldown = 3;
+              return { ...input, mark: early };
+            }
+          }
+          return { ...input, mark: best };
         }
         this.cooldown = this.level === "novice" ? 12 : 2;
         return { ...input, mark: best };
@@ -181,7 +205,7 @@ export class Bot {
     let best: Cell | null = null;
     let bestScore = -Infinity;
     const seekBeacon = this.level === "expert" ? w.beacons.live()[0] : undefined;
-    const incoming = w.cubes.alive().filter((c) => isStandard(c.type) && c.landTick < 0 && c.z - p.z <= 7);
+    const incoming = w.cubes.alive().filter((c) => isStandard(c.type) && c.landTick < 0 && c.z - p.z <= (this.level === "human" ? 5 : 7));
     for (const t of tiles) {
       const dist = Math.abs(t.x - p.x) + Math.abs(t.z - p.z);
       if (dist > 6) continue;

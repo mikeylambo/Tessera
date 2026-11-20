@@ -1,3 +1,4 @@
+import { InputPlayer } from "../sim/Replay";
 import type { Game } from "../game/Game";
 import { stageById } from "../data/hundred";
 import { RUNES, type RuneId } from "../data/runes";
@@ -123,6 +124,11 @@ export function installGameApi(game: Game): void {
       return { seed: String(w.config.seed), frames: w.frame, entries: game.recorder.entries.map((e) => [...e]), score: w.score.total, depth: w.depthRow, hash: w.stateHash(), ended: w.ended };
     },
     shareText: () => game.dailyShareText(),
+    /** Drive the current run from a log (E2E forced-failure). */
+    script: (entries: Array<[number, number, number, number, number, number, number, number]>) => {
+      game.scripted = new InputPlayer(entries);
+      return entries.length;
+    },
     link: () => ({ verdict: game.lastLinkVerdict, final: game.lastLinkFinal, phase: game.phase, screen: game.ui.active }),
     /** Evidence: record the final audio mix for `ms` → webm data URL (video is rendered frame-exact separately). */
     recordClip: async (ms: number): Promise<string | null> => {
